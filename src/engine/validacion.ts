@@ -30,7 +30,7 @@ export function validarEntrada(entrada: EntradaLiquidacion): ValidacionEntrada {
     })
   }
 
-  if (contrato.salarioBasico <= 0) {
+  if (!contrato.salarioEsMinimo && contrato.salarioBasico <= 0) {
     errores.push({ campo: 'salarioBasico', mensaje: 'El salario básico debe ser mayor que cero.' })
   }
 
@@ -128,13 +128,18 @@ export function validarEntrada(entrada: EntradaLiquidacion): ValidacionEntrada {
 
   const parametros = getParametros(entrada.anioParametros)
 
-  if (contrato.salarioBasico > 0 && contrato.salarioBasico < parametros.smmlv) {
+  if (
+    !contrato.salarioEsMinimo &&
+    contrato.salarioBasico > 0 &&
+    contrato.salarioBasico < parametros.smmlv
+  ) {
     advertencias.push(
       `El salario básico es menor al SMMLV de ${parametros.anio}. Verifica el dato o el año de los parámetros.`,
     )
   }
 
   if (
+    !contrato.salarioEsMinimo &&
     contrato.tipoSalario === 'integral' &&
     contrato.salarioBasico < parametros.smmlv * parametros.salarioIntegralSmmlv
   ) {

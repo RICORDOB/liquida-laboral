@@ -14,6 +14,7 @@ export const FORMULARIO_INICIAL: FormularioLiquidacion = {
   salarioBasico: '',
   promedioVariable: '',
   recibeAuxilioTransporte: true,
+  salarioEsMinimo: false,
   motivo: 'renuncia',
   preavisoDado: true,
   diasVacacionesDisfrutados: '0',
@@ -57,6 +58,7 @@ export function aEntrada(
       salarioBasico: aNumeroMoneda(formulario.salarioBasico),
       promedioVariable: aNumeroMoneda(formulario.promedioVariable),
       recibeAuxilioTransporte: formulario.recibeAuxilioTransporte,
+      salarioEsMinimo: formulario.salarioEsMinimo,
     },
     terminacion: {
       motivo: formulario.motivo,
@@ -87,6 +89,7 @@ export function formularioDesdeEntrada(entrada: EntradaLiquidacion): FormularioL
     salarioBasico: String(entrada.contrato.salarioBasico),
     promedioVariable: String(entrada.contrato.promedioVariable),
     recibeAuxilioTransporte: entrada.contrato.recibeAuxilioTransporte,
+    salarioEsMinimo: entrada.contrato.salarioEsMinimo,
     motivo: entrada.terminacion.motivo,
     preavisoDado: entrada.terminacion.preavisoDado,
     diasVacacionesDisfrutados: String(entrada.terminacion.diasVacacionesDisfrutados),

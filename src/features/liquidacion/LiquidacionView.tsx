@@ -281,6 +281,21 @@ export function LiquidacionView({
               descripcion="El auxilio de transporte entra en cesantías y prima, no en vacaciones."
             />
             <div className="space-y-4 p-5">
+              <Checkbox
+                id="salarioEsMinimo"
+                checked={formulario.salarioEsMinimo}
+                onChange={(valor) => actualizar('salarioEsMinimo', valor)}
+                label="El trabajador devenga el salario mínimo"
+                hint="Se usa el SMMLV y el auxilio vigentes en cada año del contrato, para liquidar periodos anteriores con el valor correcto."
+              />
+
+              {formulario.salarioEsMinimo ? (
+                <Alert variante="info" titulo="Salario mínimo por año">
+                  No necesitas ingresar el salario: cada año se toma el SMMLV y el
+                  auxilio de transporte de ese año. El auxilio siempre aplica.
+                </Alert>
+              ) : null}
+
               <div>
                 <span className="mb-1.5 block text-[13px] font-medium text-slate-700">
                   Tipo de salario
@@ -290,11 +305,14 @@ export function LiquidacionView({
                     <button
                       key={tipo}
                       type="button"
+                      disabled={formulario.salarioEsMinimo}
                       onClick={() => actualizar('tipoSalario', tipo)}
                       className={`rounded-lg px-2 py-1.5 text-[12.5px] font-medium transition ${
-                        formulario.tipoSalario === tipo
-                          ? 'bg-white text-slate-900 shadow-sm'
-                          : 'text-slate-500 hover:text-slate-700'
+                        formulario.salarioEsMinimo
+                          ? 'cursor-not-allowed opacity-40'
+                          : formulario.tipoSalario === tipo
+                            ? 'bg-white text-slate-900 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700'
                       }`}
                     >
                       {ETIQUETAS_SALARIO[tipo]}
@@ -308,13 +326,20 @@ export function LiquidacionView({
                   label="Salario básico mensual"
                   htmlFor="salarioBasico"
                   error={error('salarioBasico')}
-                  hint="Sin auxilio de transporte ni pagos variables."
+                  hint={
+                    formulario.salarioEsMinimo
+                      ? 'Automático: se usa el SMMLV de cada año.'
+                      : 'Sin auxilio de transporte ni pagos variables.'
+                  }
                 >
                   <MoneyInput
                     id="salarioBasico"
                     value={formulario.salarioBasico}
                     onChange={(event) => actualizar('salarioBasico', event.target.value)}
-                    placeholder="1.750.905"
+                    placeholder={
+                      formulario.salarioEsMinimo ? 'Automático (SMMLV por año)' : '1.750.905'
+                    }
+                    disabled={formulario.salarioEsMinimo}
                   />
                 </Field>
 
@@ -375,15 +400,22 @@ export function LiquidacionView({
                 </Field>
               ) : null}
 
-              <Checkbox
-                id="auxilioTransporte"
-                checked={formulario.recibeAuxilioTransporte}
-                onChange={(valor) => actualizar('recibeAuxilioTransporte', valor)}
-                label="Recibe auxilio de transporte"
-                hint={`Aplica hasta 2 SMMLV (${formatCOP(parametros.smmlv * 2)}). Se suma a la base de cesantías y prima.`}
-              />
+              {formulario.salarioEsMinimo ? (
+                <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/70 p-3 text-[12.5px] text-slate-600">
+                  <Icon name="check" size={14} className="text-teal-600" />
+                  Auxilio de transporte incluido automáticamente (SMMLV ≤ 2 SMMLV).
+                </div>
+              ) : (
+                <Checkbox
+                  id="auxilioTransporte"
+                  checked={formulario.recibeAuxilioTransporte}
+                  onChange={(valor) => actualizar('recibeAuxilioTransporte', valor)}
+                  label="Recibe auxilio de transporte"
+                  hint={`Aplica hasta 2 SMMLV (${formatCOP(parametros.smmlv * 2)}). Se suma a la base de cesantías y prima.`}
+                />
+              )}
 
-              {formulario.tipoSalario === 'integral' ? (
+              {formulario.tipoSalario === 'integral' && !formulario.salarioEsMinimo ? (
                 <Alert variante="info" titulo="Salario integral">
                   Las cesantías, intereses y prima ya están incluidos en el factor
                   prestacional. Solo se liquidan vacaciones, salario pendiente e

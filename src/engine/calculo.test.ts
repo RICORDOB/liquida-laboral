@@ -24,6 +24,7 @@ function crearEntrada(
       salarioBasico: 1_750_905,
       promedioVariable: 0,
       recibeAuxilioTransporte: true,
+      salarioEsMinimo: false,
       ...parcial.contrato,
     },
     terminacion: {
@@ -61,6 +62,45 @@ describe('liquidación definitiva', () => {
     expect(concepto(resultado, 'vacaciones')?.valor).toBe(887_612)
     expect(resultado.totalDevengado).toBe(4_184_325)
     expect(resultado.netoPagar).toBe(4_184_325)
+  })
+
+  it('liquida salario mínimo por año (2024 completo, año bisiesto)', () => {
+    const resultado = calcularLiquidacion(
+      crearEntrada({
+        contrato: {
+          fechaIngreso: '2024-01-01',
+          fechaRetiro: '2024-12-31',
+          salarioEsMinimo: true,
+        },
+      }),
+    )
+
+    expect(resultado.diasTotales).toBe(366)
+    expect(resultado.salarioOrdinario).toBe(1_300_000)
+    expect(resultado.auxilio).toBe(162_000)
+    expect(concepto(resultado, 'cesantias')?.valor).toBe(1_486_367)
+    expect(concepto(resultado, 'intereses_cesantias')?.valor).toBe(181_337)
+    expect(concepto(resultado, 'prima')?.valor).toBe(747_244)
+    expect(concepto(resultado, 'cesantias')?.detalle?.length).toBe(1)
+  })
+
+  it('liquida salario mínimo segmentando por año (2024-2025)', () => {
+    const resultado = calcularLiquidacion(
+      crearEntrada({
+        contrato: {
+          fechaIngreso: '2024-01-01',
+          fechaRetiro: '2025-12-31',
+          salarioEsMinimo: true,
+        },
+      }),
+    )
+
+    expect(resultado.diasTotales).toBe(731)
+    expect(resultado.salarioOrdinario).toBe(1_423_500) // SMMLV del año de retiro
+    expect(concepto(resultado, 'cesantias')?.valor).toBe(3_132_416)
+    expect(concepto(resultado, 'intereses_cesantias')?.valor).toBe(381_606)
+    expect(concepto(resultado, 'vacaciones')?.valor).toBe(1_445_248)
+    expect(concepto(resultado, 'cesantias')?.detalle?.length).toBe(2)
   })
 
   it('no incluye auxilio de transporte por encima de 2 SMMLV', () => {

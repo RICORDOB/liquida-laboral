@@ -31,8 +31,16 @@ que el cálculo sea auditable.
 
 ## Parámetros
 
-Los SMMLV, auxilio de transporte y UVT están versionados por año (2023–2026) en
+Los SMMLV, auxilio de transporte y UVT están versionados por año (2015–2026) en
 `src/engine/parametros.ts`. Verifica siempre la fuente oficial antes de pagar.
+
+### Salario mínimo por año
+
+Al marcar **«El trabajador devenga el salario mínimo»**, el motor segmenta el
+periodo por año (y por semestre para la prima) y aplica el SMMLV y el auxilio
+vigentes en cada tramo. Así, un contrato que empezó en 2021 y terminó en 2026 se
+liquida con el SMMLV de cada año, no con el de 2026. Las vacaciones, la
+indemnización y el salario pendiente usan el SMMLV del año de retiro.
 
 > **Nota 2026**: el Decreto 1469 de 2025 fue suspendido provisionalmente por el
 > Consejo de Estado y reafirmado por decreto del 18 de febrero de 2026.
@@ -80,12 +88,15 @@ src/
 - Los días se cuentan calendario, incluyendo ingreso y retiro; la proporción usa
   años de 360 días.
 - Cesantías y prima se calculan sobre el salario reportado. Si hubo cambios,
-  reporta el promedio del último año.
+  reporta el promedio del último año, o marca «salario mínimo» para que se use el
+  SMMLV de cada año.
 - Las cesantías ya consignadas y la prima ya pagada se excluyen con fechas
   opcionales.
 - La retención en la fuente se ingresa manualmente; no se calcula sola.
 - No cubre sector público, cesantías retroactivas, convenciones colectivas,
   salario en especie ni regímenes especiales.
+- Parámetros cargados de 2015 a 2026; periodos anteriores a 2015 usan el SMMLV
+  de 2015 (con advertencia).
 
 ## Desarrollo
 

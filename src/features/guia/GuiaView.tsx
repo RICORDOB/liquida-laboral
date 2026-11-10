@@ -88,6 +88,11 @@ const FAQ = [
       'Para prestaciones sociales la ley usa años de 360 días. La app cuenta los días calendario reales (365 en un año completo) y los divide por 360 para obtener la proporción legal.',
   },
   {
+    pregunta: '¿Cómo liquido un contrato que empezó en un año y terminó en otro con salario mínimo?',
+    respuesta:
+      'Marca «El trabajador devenga el salario mínimo» en el formulario. El motor divide el periodo por año (y por semestre para la prima) y usa el SMMLV y el auxilio vigentes en cada tramo. Las vacaciones y la indemnización usan el SMMLV del año de retiro.',
+  },
+  {
     pregunta: '¿Qué pasa si el trabajador tiene salario variable?',
     respuesta:
       'Debes ingresar el promedio mensual de variables de los últimos 12 meses (comisiones, bonos, horas extras). El motor lo suma al salario básico para las prestaciones.',

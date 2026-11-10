@@ -40,6 +40,7 @@ export interface EntradaLiquidacion {
     salarioBasico: number
     promedioVariable: number
     recibeAuxilioTransporte: boolean
+    salarioEsMinimo: boolean
   }
   terminacion: {
     motivo: MotivoTerminacion
@@ -66,6 +67,8 @@ export interface Concepto {
   valor: number
   norma: string
   nota?: string
+  /** Desglose por periodo cuando el cálculo se segmenta (p. ej. por año). */
+  detalle?: string[]
 }
 
 export interface Deduccion {
@@ -121,6 +124,7 @@ export interface FormularioLiquidacion {
   salarioBasico: string
   promedioVariable: string
   recibeAuxilioTransporte: boolean
+  salarioEsMinimo: boolean
   motivo: MotivoTerminacion
   preavisoDado: boolean
   diasVacacionesDisfrutados: string

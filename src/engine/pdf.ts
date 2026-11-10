@@ -88,7 +88,10 @@ export function generarPDF(resultado: ResultadoLiquidacion): jsPDF {
     startY: y,
     head: [['Concepto', 'Base', 'Días', 'Fórmula', 'Valor', 'Norma']],
     body: resultado.conceptos.map((concepto) => [
-      concepto.nombre,
+      concepto.nombre +
+        (concepto.detalle
+          ? '\n' + concepto.detalle.map((linea) => `· ${linea}`).join('\n')
+          : ''),
       formatCOP(concepto.base),
       formatDias(concepto.dias),
       concepto.formula,

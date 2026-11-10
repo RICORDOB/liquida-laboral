@@ -181,6 +181,15 @@ export function ResultadoView({
                         {concepto.nota}
                       </span>
                     ) : null}
+                    {concepto.detalle ? (
+                      <span className="mt-1.5 block space-y-0.5 font-mono text-[10.5px] leading-relaxed text-slate-400">
+                        {concepto.detalle.map((linea) => (
+                          <span key={linea} className="block">
+                            {linea}
+                          </span>
+                        ))}
+                      </span>
+                    ) : null}
                   </td>
                   <td className="px-4 py-3 text-right align-top text-slate-600">
                     {formatCOP(concepto.base)}
@@ -236,6 +245,13 @@ export function ResultadoView({
                 <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
                   {concepto.nota}
                 </p>
+              ) : null}
+              {concepto.detalle ? (
+                <div className="mt-1.5 space-y-0.5 font-mono text-[10.5px] leading-relaxed text-slate-400">
+                  {concepto.detalle.map((linea) => (
+                    <p key={linea}>{linea}</p>
+                  ))}
+                </div>
               ) : null}
             </div>
           ))}

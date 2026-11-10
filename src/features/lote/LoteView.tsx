@@ -182,6 +182,7 @@ export function LoteView() {
               ['tipo_salario', 'fijo, variable o integral'],
               ['salario_basico', 'Solo números'],
               ['auxilio_transporte', 'si / no'],
+              ['salario_minimo', 'si / no · usa el SMMLV de cada año'],
               ['motivo_terminacion', 'renuncia, despido_sin_justa, etc.'],
               ['cesantias_consignadas_hasta', 'Opcional'],
               ['ultimo_pago_prima', 'Opcional'],
