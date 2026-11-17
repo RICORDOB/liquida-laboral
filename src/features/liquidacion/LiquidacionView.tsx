@@ -497,7 +497,7 @@ export function LiquidacionView({
                     label="Cesantías consignadas hasta"
                     htmlFor="cesantiasConsignadasHasta"
                     error={error('cesantiasConsignadasHasta')}
-                    hint="Si ya consignaste al fondo, solo se liquida el periodo posterior."
+                    hint="Si ya consignaste al fondo, solo se liquidan cesantías e intereses del periodo posterior."
                   >
                     <TextInput
                       id="cesantiasConsignadasHasta"

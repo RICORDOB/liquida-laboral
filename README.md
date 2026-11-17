@@ -91,6 +91,9 @@ src/
   SMMLV de cada año.
 - Las cesantías ya consignadas y la prima ya pagada se excluyen con fechas
   opcionales.
+- Si no indicas la fecha de cesantías consignadas, los intereses se calculan
+  sobre todo el vínculo. Como en la práctica las cesantías de años anteriores ya
+  fueron consignadas, indica esa fecha para liquidar solo el periodo pendiente.
 - La retención en la fuente se ingresa manualmente; no se calcula sola.
 - No cubre sector público, cesantías retroactivas, convenciones colectivas,
   salario en especie ni regímenes especiales.
