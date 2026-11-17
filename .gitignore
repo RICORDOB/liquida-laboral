@@ -26,5 +26,9 @@ dist-ssr
 # Capturas de prueba
 .shots
 
+# Playwright (artefactos de ejecución)
+playwright-report/
+test-results/
+
 # CodeGraph index (local)
 .codegraph/

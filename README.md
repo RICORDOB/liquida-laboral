@@ -13,7 +13,6 @@ backend, sin cuentas y sin que los datos salgan del navegador.
 - Prima de servicios
 - Vacaciones causadas y no disfrutadas
 - Indemnización por despido sin justa causa (Art. 64 CST)
-- Indemnización por falta de preaviso (Art. 46 CST)
 - Salario y auxilio de transporte pendientes
 - Sanción por mora (Art. 65 CST)
 - Deducciones: salud, pensión, fondo de solidaridad, retención y otras

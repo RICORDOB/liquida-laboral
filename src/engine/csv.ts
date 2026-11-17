@@ -191,7 +191,6 @@ export function parsearLote(texto: string, anioParametros: number): ResultadoLot
       },
       terminacion: {
         motivo: aMotivo(leer(fila, 'motivo_terminacion')),
-        preavisoDado: !aBooleano(leer(fila, 'sin_preaviso')),
         diasVacacionesDisfrutados: aDecimal(leer(fila, 'vacaciones_disfrutadas')),
         diasSalarioPendiente: aDecimal(leer(fila, 'dias_salario_pendiente')),
         cesantiasConsignadasHasta: aFecha(leer(fila, 'cesantias_consignadas_hasta')),
@@ -262,7 +261,6 @@ export function exportarResultadosCSV(filas: FilaLote[]): string {
     prima: valorConcepto(resultado, 'prima'),
     vacaciones: valorConcepto(resultado, 'vacaciones'),
     indemnizacion: valorConcepto(resultado, 'indemnizacion'),
-    preaviso: valorConcepto(resultado, 'preaviso'),
     salario_pendiente: valorConcepto(resultado, 'salario_pendiente'),
     auxilio_pendiente: valorConcepto(resultado, 'auxilio_pendiente'),
     sancion_mora: valorConcepto(resultado, 'sancion_mora'),
@@ -306,7 +304,6 @@ export function plantillaCSV(): string {
         dias_salario_pendiente: 0,
         cesantias_consignadas_hasta: '2025-12-31',
         ultimo_pago_prima: '2026-06-30',
-        sin_preaviso: 'no',
         incluir_sancion_mora: 'no',
         fecha_pago_liquidacion: '',
         otras_deducciones: 0,

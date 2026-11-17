@@ -29,7 +29,6 @@ function crearEntrada(
     },
     terminacion: {
       motivo: 'renuncia',
-      preavisoDado: true,
       diasVacacionesDisfrutados: 0,
       diasSalarioPendiente: 0,
       cesantiasConsignadasHasta: '',
@@ -208,9 +207,9 @@ describe('liquidación definitiva', () => {
     expect(concepto(resultado, 'cesantias')).toBeUndefined()
     expect(concepto(resultado, 'intereses_cesantias')).toBeUndefined()
     expect(concepto(resultado, 'prima')).toBeUndefined()
-    expect(concepto(resultado, 'vacaciones')?.valor).toBe(12_673_611)
+    expect(concepto(resultado, 'vacaciones')?.valor).toBe(9_748_932)
     expect(concepto(resultado, 'indemnizacion')?.valor).toBe(16_840_278)
-    expect(resultado.totalDevengado).toBe(29_513_889)
+    expect(resultado.totalDevengado).toBe(26_589_210)
   })
 
   it('excluye cesantías ya consignadas y prima ya pagada', () => {
@@ -279,15 +278,17 @@ describe('liquidación definitiva', () => {
     expect(concepto(larga, 'sancion_mora')?.dias).toBe(720)
   })
 
-  it('suma el preaviso cuando no se dio en despido indefinido', () => {
+  it('calcula vacaciones de salario integral sobre la base dividida por 1.3', () => {
     const resultado = calcularLiquidacion(
       crearEntrada({
-        contrato: { salarioBasico: 2_000_000 },
-        terminacion: { motivo: 'despido_sin_justa', preavisoDado: false },
+        contrato: { tipoSalario: 'integral', salarioBasico: 13 * 1_750_905 },
+        terminacion: { motivo: 'despido_sin_justa' },
       }),
     )
 
-    expect(concepto(resultado, 'preaviso')?.valor).toBe(2_000_000)
+    // La base de vacaciones del integral es integral ÷ (1 + 30 %).
+    expect(resultado.baseVacaciones).toBe(17_509_050)
+    expect(concepto(resultado, 'vacaciones')?.base).toBe(17_509_050)
   })
 
   it('lanza error con fechas inválidas', () => {

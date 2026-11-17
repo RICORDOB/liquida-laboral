@@ -10,6 +10,9 @@ import type {
 
 const r0 = (valor: number) => Math.round(valor + 1e-9)
 
+// Factor prestacional mínimo del salario integral (Art. 132 CST): 30 %.
+const FACTOR_PRESTACIONAL_INTEGRAL = 0.3
+
 interface Segmento {
   anio: number
   dias: number
@@ -171,7 +174,11 @@ export function calcularLiquidacion(entrada: EntradaLiquidacion): ResultadoLiqui
   }
 
   const basePrestaciones = esIntegral ? 0 : salarioOrdinario + auxilio
-  const baseVacaciones = salarioOrdinario
+  // En salario integral las vacaciones se liquidan sobre el salario base:
+  // integral ÷ (1 + factor prestacional del 30 %), no sobre el integral completo.
+  const baseVacaciones = esIntegral
+    ? salarioOrdinario / (1 + FACTOR_PRESTACIONAL_INTEGRAL)
+    : salarioOrdinario
 
   const conceptos: Concepto[] = []
   const deducciones: Deduccion[] = []
@@ -345,7 +352,9 @@ export function calcularLiquidacion(entrada: EntradaLiquidacion): ResultadoLiqui
     )}`,
     valor: vacaciones,
     norma: 'Arts. 186 a 192 CST',
-    nota: 'La base de vacaciones no incluye el auxilio de transporte.',
+    nota: esIntegral
+      ? 'Salario integral: la base de vacaciones es el integral dividido por 1.3 (factor prestacional).'
+      : 'La base de vacaciones no incluye el auxilio de transporte.',
   })
 
   // ---------------------------------------------------------------------------
@@ -357,7 +366,7 @@ export function calcularLiquidacion(entrada: EntradaLiquidacion): ResultadoLiqui
 
   if (esDespidoSinJusta) {
     if (contrato.tipo === 'indefinido') {
-      const limite10 = parametros.smmlv * 10
+      const limite10 = parametrosRetiro.smmlv * 10
       const baseDias = salarioOrdinario < limite10 ? 30 : 20
       const incremento = salarioOrdinario < limite10 ? 20 : 15
 
@@ -414,27 +423,6 @@ export function calcularLiquidacion(entrada: EntradaLiquidacion): ResultadoLiqui
     advertencias.push('El motivo "fin de plazo" no corresponde a un contrato a término fijo.')
   } else if (terminacion.motivo === 'fin_obra' && contrato.tipo !== 'obra') {
     advertencias.push('El motivo "fin de obra" no corresponde a un contrato por obra o labor.')
-  }
-
-  // ---------------------------------------------------------------------------
-  // Preaviso (solo contrato indefinido y despido sin justa causa)
-  // ---------------------------------------------------------------------------
-  if (
-    esDespidoSinJusta &&
-    contrato.tipo === 'indefinido' &&
-    !terminacion.preavisoDado
-  ) {
-    conceptos.push({
-      id: 'preaviso',
-      nombre: 'Indemnización por falta de preaviso',
-      categoria: 'indemnizacion',
-      base: salarioOrdinario,
-      dias: 30,
-      formula: `(${formatNumero(salarioOrdinario)} / 30) × 30`,
-      valor: r0(salarioOrdinario),
-      norma: 'Art. 46 CST',
-      nota: 'El empleador debe avisar con 30 días de antelación; si no lo hizo, paga el salario del periodo.',
-    })
   }
 
   // ---------------------------------------------------------------------------

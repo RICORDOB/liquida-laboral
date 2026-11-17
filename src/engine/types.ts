@@ -44,7 +44,6 @@ export interface EntradaLiquidacion {
   }
   terminacion: {
     motivo: MotivoTerminacion
-    preavisoDado: boolean
     diasVacacionesDisfrutados: number
     diasSalarioPendiente: number
     cesantiasConsignadasHasta: string
@@ -126,7 +125,6 @@ export interface FormularioLiquidacion {
   recibeAuxilioTransporte: boolean
   salarioEsMinimo: boolean
   motivo: MotivoTerminacion
-  preavisoDado: boolean
   diasVacacionesDisfrutados: string
   diasSalarioPendiente: string
   cesantiasConsignadasHasta: string

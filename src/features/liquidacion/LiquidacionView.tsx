@@ -486,18 +486,6 @@ export function LiquidacionView({
                   />
                 </Field>
 
-                {formulario.tipoContrato === 'indefinido' &&
-                formulario.motivo === 'despido_sin_justa' ? (
-                  <div className="sm:col-span-2">
-                    <Checkbox
-                      id="preavisoDado"
-                      checked={formulario.preavisoDado}
-                      onChange={(valor) => actualizar('preavisoDado', valor)}
-                      label="Se dio preaviso de 30 días"
-                      hint="Si no se dio, se suma el salario correspondiente al periodo de preaviso (Art. 46 CST)."
-                    />
-                  </div>
-                ) : null}
               </div>
 
               <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
