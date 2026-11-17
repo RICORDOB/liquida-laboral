@@ -25,3 +25,6 @@ dist-ssr
 
 # Capturas de prueba
 .shots
+
+# CodeGraph index (local)
+.codegraph/
