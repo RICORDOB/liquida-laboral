@@ -560,6 +560,14 @@ export function LiquidacionView({
 
                 <div className="mt-4 space-y-3">
                   <Checkbox
+                    id="primaJunioPagada"
+                    checked={formulario.primaJunioPagada}
+                    onChange={(valor) => actualizar('primaJunioPagada', valor)}
+                    label="Prima de junio ya pagada"
+                    hint="Marca si ya pagaste la prima del primer semestre (enero–junio). El cálculo arranca desde el 1 de julio."
+                  />
+
+                  <Checkbox
                     id="incluirSancionMora"
                     checked={formulario.incluirSancionMora}
                     onChange={(valor) => actualizar('incluirSancionMora', valor)}
@@ -691,8 +699,7 @@ export function LiquidacionView({
               Antes de pagar
             </p>
             Verifica el motivo de terminación, los días de vacaciones y si las
-            cesantías ya fueron consignadas. La herramienta es una estimación y no
-            reemplaza la revisión de un contador o abogado laboralista.
+            cesantías ya fueron consignadas antes de finalizar el pago.
           </div>
         </aside>
       </div>

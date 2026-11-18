@@ -203,28 +203,38 @@ export function calcularLiquidacion(entrada: EntradaLiquidacion): ResultadoLiqui
     }
   }
 
+  // Auxilio de transporte de un año concreto: en salario mínimo siempre aplica;
+  // en los demás casos aplica si el salario no supera el tope de ese año.
+  const auxilioPorAnio = (anio: number): number => {
+    if (salarioEsMinimo) return getParametros(anio).auxilioTransporte
+    const p = getParametros(anio)
+    return contrato.recibeAuxilioTransporte &&
+      salarioOrdinario <= p.smmlv * p.topeAuxilioSmmlv
+      ? p.auxilioTransporte
+      : 0
+  }
+
   let cesantias = 0
   let intereses = 0
   const detalleCesantias: string[] = []
+  const segmentosCesantias = diasPorAnio(desdeCesantias, contrato.fechaRetiro)
 
   if (!esIntegral && diasCesantias > 0) {
-    if (salarioEsMinimo) {
-      for (const segmento of diasPorAnio(desdeCesantias, contrato.fechaRetiro)) {
-        const p = getParametros(segmento.anio)
-        const base = p.smmlv + p.auxilioTransporte
-        const ces = r0((base * segmento.dias) / 360)
-        const int = r0((ces * segmento.dias * p.tasaInteresCesantias) / 360)
-        cesantias += ces
-        intereses += int
-        detalleCesantias.push(
-          `${segmento.anio}: (${formatNumero(p.smmlv)} + ${formatNumero(p.auxilioTransporte)}) × ${segmento.dias} días = ${formatNumero(ces)}`,
-        )
-      }
-    } else {
-      cesantias = r0((basePrestaciones * diasCesantias) / 360)
-      intereses = r0((cesantias * diasCesantias * parametros.tasaInteresCesantias) / 360)
+    for (const segmento of segmentosCesantias) {
+      const p = getParametros(segmento.anio)
+      const aux = auxilioPorAnio(segmento.anio)
+      const base = salarioEsMinimo ? p.smmlv + p.auxilioTransporte : salarioOrdinario + aux
+      const ces = r0((base * segmento.dias) / 360)
+      const int = r0((ces * segmento.dias * p.tasaInteresCesantias) / 360)
+      cesantias += ces
+      intereses += int
+      detalleCesantias.push(
+        `${segmento.anio}: (${formatNumero(salarioEsMinimo ? p.smmlv : salarioOrdinario)} + ${formatNumero(aux)}) × ${segmento.dias} días = ${formatNumero(ces)}`,
+      )
     }
   }
+
+  const segmentado = segmentosCesantias.length > 1
 
   if (!esIntegral) {
     conceptos.push({
@@ -233,15 +243,15 @@ export function calcularLiquidacion(entrada: EntradaLiquidacion): ResultadoLiqui
       categoria: 'prestacion',
       base: basePrestaciones,
       dias: diasCesantias,
-      formula: salarioEsMinimo
-        ? 'Σ por año (SMMLV + auxilio vigentes) × días / 360'
+      formula: salarioEsMinimo || segmentado
+        ? 'Σ por año (salario + auxilio vigentes) × días / 360'
         : `(${formatNumero(basePrestaciones)} × ${diasCesantias}) / 360`,
       valor: cesantias,
       norma: 'Art. 249 CST; Ley 50 de 1990',
       nota: auxilioAplica
         ? 'Incluye el auxilio de transporte en la base, conforme a la práctica laboral.'
         : undefined,
-      detalle: salarioEsMinimo ? detalleCesantias : undefined,
+      detalle: salarioEsMinimo || segmentado ? detalleCesantias : undefined,
     })
 
     conceptos.push({
@@ -250,7 +260,7 @@ export function calcularLiquidacion(entrada: EntradaLiquidacion): ResultadoLiqui
       categoria: 'prestacion',
       base: cesantias,
       dias: diasCesantias,
-      formula: salarioEsMinimo
+      formula: salarioEsMinimo || segmentado
         ? 'Σ por año (cesantías × días × 12%) / 360'
         : `(${formatNumero(cesantias)} × ${diasCesantias} × 12%) / 360`,
       valor: intereses,
@@ -263,6 +273,14 @@ export function calcularLiquidacion(entrada: EntradaLiquidacion): ResultadoLiqui
   // ---------------------------------------------------------------------------
   const maxFecha = (a: string, b: string) => (a > b ? a : b)
   let desdePrima = maxFecha(inicioSemestre(contrato.fechaRetiro), contrato.fechaIngreso)
+
+  if (terminacion.primaJunioPagada) {
+    // La prima del primer semestre ya se pagó: el periodo causado arranca el 1 de julio.
+    desdePrima = maxFecha(
+      sumarDias(`${anioDe(contrato.fechaRetiro)}-06-30`, 1),
+      contrato.fechaIngreso,
+    )
+  }
 
   if (terminacion.ultimoPagoPrima) {
     if (fechaValida(terminacion.ultimoPagoPrima)) {
@@ -281,21 +299,25 @@ export function calcularLiquidacion(entrada: EntradaLiquidacion): ResultadoLiqui
 
   let prima = 0
   const detallePrima: string[] = []
+  const segmentosPrima = diasPorSemestre(desdePrima, contrato.fechaRetiro)
 
   if (!esIntegral && diasPrima > 0) {
-    if (salarioEsMinimo) {
-      for (const segmento of diasPorSemestre(desdePrima, contrato.fechaRetiro)) {
-        const p = getParametros(segmento.anio)
-        const base = p.smmlv + p.auxilioTransporte
-        const valor = r0((base * segmento.dias) / 360)
-        prima += valor
-        detallePrima.push(
-          `${segmento.anio}: (${formatNumero(p.smmlv)} + ${formatNumero(p.auxilioTransporte)}) × ${segmento.dias} días = ${formatNumero(valor)}`,
-        )
-      }
-    } else {
-      prima = r0((basePrestaciones * diasPrima) / 360)
+    for (const segmento of segmentosPrima) {
+      const p = getParametros(segmento.anio)
+      const aux = auxilioPorAnio(segmento.anio)
+      const base = salarioEsMinimo ? p.smmlv + p.auxilioTransporte : salarioOrdinario + aux
+      const valor = r0((base * segmento.dias) / 360)
+      prima += valor
+      detallePrima.push(
+        `${segmento.anio}: (${formatNumero(salarioEsMinimo ? p.smmlv : salarioOrdinario)} + ${formatNumero(aux)}) × ${segmento.dias} días = ${formatNumero(valor)}`,
+      )
     }
+  }
+
+  if (terminacion.primaJunioPagada && diasPrima <= 0) {
+    advertencias.push(
+      'Marcaste la prima de junio como ya pagada; no queda prima pendiente en este periodo.',
+    )
   }
 
   if (terminacion.ultimoPagoPrima && terminacion.ultimoPagoPrima >= contrato.fechaRetiro) {
@@ -311,15 +333,17 @@ export function calcularLiquidacion(entrada: EntradaLiquidacion): ResultadoLiqui
       categoria: 'prestacion',
       base: basePrestaciones,
       dias: diasPrima,
-      formula: salarioEsMinimo
-        ? 'Σ por semestre (SMMLV + auxilio vigentes) × días / 360'
+      formula: salarioEsMinimo || segmentosPrima.length > 1
+        ? 'Σ por semestre (salario + auxilio vigentes) × días / 360'
         : `(${formatNumero(basePrestaciones)} × ${diasPrima}) / 360`,
       valor: prima,
       norma: 'Arts. 306 a 308 CST',
-      nota: terminacion.ultimoPagoPrima
-        ? `Periodo causado desde ${terminacion.ultimoPagoPrima} (exclusivo).`
-        : 'Periodo causado desde el inicio del semestre actual.',
-      detalle: salarioEsMinimo ? detallePrima : undefined,
+      nota: terminacion.primaJunioPagada
+        ? 'Prima del primer semestre (junio) ya pagada; se liquida desde el 1 de julio.'
+        : terminacion.ultimoPagoPrima
+          ? `Periodo causado desde ${terminacion.ultimoPagoPrima} (exclusivo).`
+          : 'Periodo causado desde el inicio del semestre actual.',
+      detalle: salarioEsMinimo || segmentosPrima.length > 1 ? detallePrima : undefined,
     })
   }
 
@@ -601,4 +625,4 @@ export function calcularLiquidacion(entrada: EntradaLiquidacion): ResultadoLiqui
 }
 
 export const ADVERTENCIA_GENERAL =
-  'Herramienta de estimación. No cubre sector público, cesantías retroactivas anteriores a 1990, convenciones colectivas, salarios en especie ni casos con reglas especiales. Verifica el resultado con un contador o abogado laboralista antes de pagar.'
+  'Herramienta de estimación. No cubre sector público, cesantías retroactivas anteriores a 1990, convenciones colectivas, salarios en especie ni casos con reglas especiales.'

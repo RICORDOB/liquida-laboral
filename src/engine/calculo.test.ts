@@ -33,6 +33,7 @@ function crearEntrada(
       diasSalarioPendiente: 0,
       cesantiasConsignadasHasta: '',
       ultimoPagoPrima: '',
+      primaJunioPagada: false,
       incluirSancionMora: false,
       fechaPagoLiquidacion: '',
       otrasDeducciones: 0,
@@ -100,6 +101,42 @@ describe('liquidación definitiva', () => {
     expect(concepto(resultado, 'intereses_cesantias')?.valor).toBe(381_606)
     expect(concepto(resultado, 'vacaciones')?.valor).toBe(1_445_248)
     expect(concepto(resultado, 'cesantias')?.detalle?.length).toBe(2)
+  })
+
+  it('liquida salario no mínimo segmentando por año (jul-2025 a dic-2026)', () => {
+    const resultado = calcularLiquidacion(
+      crearEntrada({
+        contrato: {
+          fechaIngreso: '2025-07-01',
+          fechaRetiro: '2026-12-31',
+          salarioBasico: 2_000_000,
+          recibeAuxilioTransporte: false,
+        },
+      }),
+    )
+
+    expect(resultado.diasTotales).toBe(549)
+    // Cesantías por año; los intereses se causan por año (no sobre el total × total).
+    expect(concepto(resultado, 'cesantias')?.valor).toBe(3_050_000)
+    expect(concepto(resultado, 'intereses_cesantias')?.valor).toBe(309_409)
+    expect(concepto(resultado, 'cesantias')?.detalle?.length).toBe(2)
+  })
+
+  it('excluye la prima de junio cuando ya está pagada (retiro en primer semestre)', () => {
+    const contrato = {
+      fechaIngreso: '2025-07-01',
+      fechaRetiro: '2026-06-30',
+      salarioBasico: 2_000_000,
+      recibeAuxilioTransporte: false,
+    }
+
+    const sinCheck = calcularLiquidacion(crearEntrada({ contrato }))
+    const conCheck = calcularLiquidacion(
+      crearEntrada({ contrato, terminacion: { primaJunioPagada: true } }),
+    )
+
+    expect(concepto(sinCheck, 'prima')?.valor).toBe(1_005_556)
+    expect(concepto(conCheck, 'prima')?.valor).toBe(0)
   })
 
   it('no incluye auxilio de transporte por encima de 2 SMMLV', () => {

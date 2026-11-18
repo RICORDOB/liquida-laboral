@@ -4,6 +4,7 @@ import { ADVERTENCIA_GENERAL } from './calculo'
 import { formatearFecha } from './fechas'
 import { formatCOP, formatDias } from './formato'
 import type { ResultadoLiquidacion } from './types'
+import type { DatosEmpresa } from '../lib/empresa'
 
 const TEAL: [number, number, number] = [15, 118, 110]
 const SLATE: [number, number, number] = [15, 23, 42]
@@ -25,7 +26,20 @@ function finalY(doc: jsPDF, fallback: number): number {
   return conTabla.lastAutoTable?.finalY ?? fallback
 }
 
-export function generarPDF(resultado: ResultadoLiquidacion): jsPDF {
+function proporcionImagen(doc: jsPDF, dataUrl: string): number {
+  try {
+    const props = doc.getImageProperties(dataUrl) as { width?: number; height?: number }
+    if (props?.width && props?.height) return props.width / props.height
+  } catch {
+    // Sin propiedades de imagen: se asume proporción 1:1.
+  }
+  return 1
+}
+
+export function generarPDF(
+  resultado: ResultadoLiquidacion,
+  empresa?: DatosEmpresa | null,
+): jsPDF {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   const margen = 14
   const anchoUtil = 210 - margen * 2
@@ -34,12 +48,31 @@ export function generarPDF(resultado: ResultadoLiquidacion): jsPDF {
   doc.setFillColor(...TEAL)
   doc.rect(0, 0, 210, 30, 'F')
   doc.setTextColor(255, 255, 255)
+
+  const nombreEmpresa = empresa?.razonSocial?.trim() || ''
+  const lineaEmpresa = empresa?.nit?.trim()
+    ? `${nombreEmpresa} · NIT ${empresa.nit.trim()}`
+    : nombreEmpresa
+
+  let tituloX = margen
+  if (empresa?.logo) {
+    const proporcion = proporcionImagen(doc, empresa.logo)
+    const altoLogo = 16
+    const anchoLogo = Math.min(28, altoLogo * proporcion)
+    try {
+      doc.addImage(empresa.logo, 'PNG', margen, 7, anchoLogo, altoLogo)
+      tituloX = margen + anchoLogo + 4
+    } catch {
+      tituloX = margen
+    }
+  }
+
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(18)
-  doc.text('Liquidación laboral definitiva', margen, 14)
+  doc.text('Liquidación laboral definitiva', tituloX, 14)
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
-  doc.text('Liquida Laboral · Colombia', margen, 21)
+  doc.text(lineaEmpresa || 'Liquida Laboral · Colombia', tituloX, 21)
   doc.text(`Generado: ${formatearFecha(new Date().toISOString().slice(0, 10))}`, 196, 21, {
     align: 'right',
   })
@@ -246,6 +279,45 @@ export function generarPDF(resultado: ResultadoLiquidacion): jsPDF {
   doc.text(doc.splitTextToSize(parametrosTexto, anchoUtil), margen, y)
   y += 8
 
+  if (
+    empresa &&
+    (nombreEmpresa ||
+      empresa.direccion.trim() ||
+      empresa.ciudad.trim() ||
+      empresa.telefono.trim() ||
+      empresa.correo.trim())
+  ) {
+    if (y > 250) {
+      doc.addPage()
+      y = 20
+    }
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(8)
+    doc.setTextColor(...SLATE)
+    doc.text('Emitido por', margen, y)
+    y += 4
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(7.5)
+    doc.setTextColor(...MUTED)
+    const lineasEmpresa = [
+      nombreEmpresa || undefined,
+      empresa.nit.trim() ? `NIT: ${empresa.nit.trim()}` : undefined,
+      [empresa.direccion.trim(), empresa.ciudad.trim()].filter(Boolean).join(' · ') || undefined,
+      empresa.telefono.trim() ? `Teléfono: ${empresa.telefono.trim()}` : undefined,
+      empresa.correo.trim() || undefined,
+    ].filter((linea): linea is string => Boolean(linea))
+    for (const linea of lineasEmpresa) {
+      doc.text(linea, margen, y)
+      y += 4
+    }
+    y += 4
+  }
+
+  if (y > 260) {
+    doc.addPage()
+    y = 20
+  }
+
   const disclaimer = doc.splitTextToSize(ADVERTENCIA_GENERAL, anchoUtil)
   doc.setFontSize(6.8)
   doc.setTextColor(100, 116, 139)
@@ -268,8 +340,11 @@ export function generarPDF(resultado: ResultadoLiquidacion): jsPDF {
   return doc
 }
 
-export function descargarPDF(resultado: ResultadoLiquidacion): void {
-  const doc = generarPDF(resultado)
+export function descargarPDF(
+  resultado: ResultadoLiquidacion,
+  empresa?: DatosEmpresa | null,
+): void {
+  const doc = generarPDF(resultado, empresa)
   const nombre = `liquidacion-${slug(resultado.entrada.empleado.nombre || 'trabajador')}-${
     resultado.entrada.contrato.fechaRetiro
   }.pdf`

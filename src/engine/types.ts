@@ -48,6 +48,7 @@ export interface EntradaLiquidacion {
     diasSalarioPendiente: number
     cesantiasConsignadasHasta: string
     ultimoPagoPrima: string
+    primaJunioPagada: boolean
     incluirSancionMora: boolean
     fechaPagoLiquidacion: string
     otrasDeducciones: number
@@ -129,6 +130,7 @@ export interface FormularioLiquidacion {
   diasSalarioPendiente: string
   cesantiasConsignadasHasta: string
   ultimoPagoPrima: string
+  primaJunioPagada: boolean
   incluirSancionMora: boolean
   fechaPagoLiquidacion: string
   otrasDeducciones: string

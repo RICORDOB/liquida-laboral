@@ -7,6 +7,7 @@ import { formatearFecha } from '../../engine/fechas'
 import { formatCOP, formatDias } from '../../engine/formato'
 import { descargarPDF } from '../../engine/pdf'
 import type { ResultadoLiquidacion } from '../../engine/types'
+import { cargarDatosEmpresa } from '../../lib/empresa'
 import { slugArchivo } from '../../lib/descargas'
 
 interface Props {
@@ -37,6 +38,7 @@ export function ResultadoView({
 }: Props) {
   const { entrada } = resultado
   const nombre = entrada.empleado.nombre || 'Trabajador'
+  const empresa = cargarDatosEmpresa()
 
   function exportarExcel() {
     void writeXlsxFile(resultadosDatos([{ fila: 1, entrada, resultado }])).toFile(
@@ -332,7 +334,7 @@ export function ResultadoView({
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <Button onClick={() => descargarPDF(resultado)}>
+        <Button onClick={() => descargarPDF(resultado, empresa)}>
           <Icon name="download" size={15} />
           Descargar PDF
         </Button>

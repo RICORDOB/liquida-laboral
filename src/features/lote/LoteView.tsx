@@ -22,6 +22,7 @@ import type { CeldaLote, ResultadoLote } from '../../engine/xlsx'
 import { formatCOP } from '../../engine/formato'
 import { ANIOS_DISPONIBLES, anioVigente } from '../../engine/parametros'
 import { descargarPDF } from '../../engine/pdf'
+import { cargarDatosEmpresa } from '../../lib/empresa'
 
 export function LoteView() {
   const [anio, setAnio] = useState(String(anioVigente()))
@@ -33,6 +34,7 @@ export function LoteView() {
     () => lote?.filas.reduce((total, fila) => total + fila.resultado.netoPagar, 0) ?? 0,
     [lote],
   )
+  const empresa = useMemo(() => cargarDatosEmpresa(), [])
 
   function procesar(filas: CeldaLote[][]) {
     setError(null)
@@ -290,7 +292,7 @@ export function LoteView() {
                           <Button
                             tamano="sm"
                             variante="ghost"
-                            onClick={() => descargarPDF(fila.resultado)}
+                            onClick={() => descargarPDF(fila.resultado, empresa)}
                             aria-label={`Descargar PDF de ${fila.entrada.empleado.nombre}`}
                           >
                             <Icon name="download" size={14} />

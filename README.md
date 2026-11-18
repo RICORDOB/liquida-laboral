@@ -4,8 +4,7 @@ Calculadora de liquidaciones laborales definitivas en Colombia. 100% local: sin
 backend, sin cuentas y sin que los datos salgan del navegador.
 
 > **Resultado orientativo.** No es asesoría jurídica ni contable. Verifica los
-> parámetros y los casos especiales con un contador o abogado laboralista antes
-> de pagar.
+> parámetros vigentes y los casos especiales antes de pagar.
 
 ## Qué calcula
 

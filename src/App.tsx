@@ -5,6 +5,7 @@ import { Button } from './components/ui'
 import { FORMULARIO_INICIAL, formularioDesdeEntrada } from './engine/formulario'
 import type { FormularioLiquidacion, ResultadoLiquidacion } from './engine/types'
 import { GuiaView } from './features/guia/GuiaView'
+import { EmpresaView } from './features/empresa/EmpresaView'
 import { HistorialView } from './features/historial/HistorialView'
 import { LegalView } from './features/legal/LegalView'
 import { LiquidacionView } from './features/liquidacion/LiquidacionView'
@@ -18,13 +19,14 @@ import {
   nuevoId,
 } from './lib/storage'
 
-type Vista = 'liquidacion' | 'lote' | 'historial' | 'guia' | 'legal'
+type Vista = 'liquidacion' | 'lote' | 'historial' | 'guia' | 'empresa' | 'legal'
 
 const NAV: { id: Vista; etiqueta: string; icono: IconName }[] = [
   { id: 'liquidacion', etiqueta: 'Liquidación', icono: 'calculator' },
   { id: 'lote', etiqueta: 'Lote Excel', icono: 'table' },
   { id: 'historial', etiqueta: 'Historial', icono: 'history' },
   { id: 'guia', etiqueta: 'Guía', icono: 'book' },
+  { id: 'empresa', etiqueta: 'Empresa', icono: 'building' },
 ]
 
 const CLAVE_AVISO = 'liquida-laboral:aviso-aceptado:v1'
@@ -111,6 +113,8 @@ export default function App() {
         )
       case 'guia':
         return <GuiaView />
+      case 'empresa':
+        return <EmpresaView />
       case 'legal':
         return <LegalView />
     }
@@ -241,8 +245,8 @@ export default function App() {
               <ul className="space-y-2.5">
                 <li className="flex items-start gap-2">
                   <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-teal-500" />
-                  Los resultados son <strong>orientativos</strong> y no reemplazan la
-                  revisión de un contador o abogado laboralista.
+                  Los resultados son <strong>orientativos</strong> y se basan en los
+                  datos que ingresas.
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-teal-500" />
