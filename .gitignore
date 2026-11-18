@@ -32,3 +32,4 @@ test-results/
 
 # CodeGraph index (local)
 .codegraph/
+.vercel

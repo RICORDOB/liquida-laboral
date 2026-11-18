@@ -1,12 +1,13 @@
 import { Icon } from '../../components/Icon'
 import { Alert, Badge, Button, Card } from '../../components/ui'
 import { ADVERTENCIA_GENERAL } from '../../engine/calculo'
-import { exportarResultadosCSV } from '../../engine/csv'
+import writeXlsxFile from 'write-excel-file/browser'
+import { resultadosDatos } from '../../engine/xlsx'
 import { formatearFecha } from '../../engine/fechas'
 import { formatCOP, formatDias } from '../../engine/formato'
 import { descargarPDF } from '../../engine/pdf'
 import type { ResultadoLiquidacion } from '../../engine/types'
-import { descargarTexto, slugArchivo } from '../../lib/descargas'
+import { slugArchivo } from '../../lib/descargas'
 
 interface Props {
   resultado: ResultadoLiquidacion
@@ -37,13 +38,9 @@ export function ResultadoView({
   const { entrada } = resultado
   const nombre = entrada.empleado.nombre || 'Trabajador'
 
-  function exportarCSV() {
-    const csv = exportarResultadosCSV([
-      { fila: 1, entrada, resultado },
-    ])
-    descargarTexto(
-      `liquidacion-${slugArchivo(nombre)}-${entrada.contrato.fechaRetiro}.csv`,
-      csv,
+  function exportarExcel() {
+    void writeXlsxFile(resultadosDatos([{ fila: 1, entrada, resultado }])).toFile(
+      `liquidacion-${slugArchivo(nombre)}-${entrada.contrato.fechaRetiro}.xlsx`,
     )
   }
 
@@ -339,9 +336,9 @@ export function ResultadoView({
           <Icon name="download" size={15} />
           Descargar PDF
         </Button>
-        <Button variante="outline" onClick={exportarCSV}>
+        <Button variante="outline" onClick={exportarExcel}>
           <Icon name="table" size={15} />
-          Descargar CSV
+          Descargar Excel
         </Button>
         <Button variante="outline" onClick={onGuardar}>
           <Icon name={guardado ? 'check' : 'save'} size={15} />

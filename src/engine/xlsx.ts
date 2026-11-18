@@ -1,6 +1,4 @@
-import Papa from 'papaparse'
 import { calcularLiquidacion } from './calculo'
-import { formatearFecha } from './fechas'
 import type {
   EntradaLiquidacion,
   MotivoTerminacion,
@@ -9,6 +7,9 @@ import type {
   TipoSalario,
 } from './types'
 import { validarEntrada } from './validacion'
+
+/** Valor de celda tal como lo devuelve `read-excel-file`. */
+export type CeldaLote = string | number | boolean | Date | null
 
 export interface FilaLote {
   fila: number
@@ -160,19 +161,40 @@ function leer(fila: Record<string, string>, campo: string): string {
   return (fila[campo] ?? '').trim()
 }
 
-export function parsearLote(texto: string, anioParametros: number): ResultadoLote {
-  const parseado = Papa.parse<Record<string, string>>(texto, {
-    header: true,
-    skipEmptyLines: 'greedy',
-    transformHeader: normalizarHeader,
-  })
+/** Convierte una celda de Excel a texto plano para reutilizar el mapeo existente. */
+function celdaATexto(celda: CeldaLote): string {
+  if (celda === null || celda === undefined) return ''
+  if (celda instanceof Date) {
+    const anio = celda.getUTCFullYear()
+    const mes = String(celda.getUTCMonth() + 1).padStart(2, '0')
+    const dia = String(celda.getUTCDate()).padStart(2, '0')
+    return `${anio}-${mes}-${dia}`
+  }
+  if (typeof celda === 'boolean') return celda ? 'si' : 'no'
+  return String(celda)
+}
 
-  const filas: FilaLote[] = []
+/**
+ * Procesa un lote leído desde una hoja de Excel. Recibe las filas tal como las
+ * devuelve `read-excel-file` (array de arrays de celdas; la primera fila son los
+ * encabezados) y produce un resultado por fila, sin bloquear a las demás.
+ */
+export function parsearLote(filas: CeldaLote[][], anioParametros: number): ResultadoLote {
+  if (filas.length === 0) return { filas: [], errores: [], totalFilas: 0 }
+
+  const encabezados = filas[0].map((celda) => normalizarHeader(celdaATexto(celda)))
+  const datos = filas.slice(1)
+
+  const filasLote: FilaLote[] = []
   const errores: ErrorLote[] = []
-  const datos = parseado.data ?? []
 
-  datos.forEach((fila, indice) => {
+  datos.forEach((filaCeldas, indice) => {
     const numeroFila = indice + 2 // +1 por índice, +1 por encabezado
+    const fila: Record<string, string> = {}
+    encabezados.forEach((encabezado, col) => {
+      fila[encabezado] = celdaATexto(filaCeldas[col] ?? null)
+    })
+
     const nombre = leer(fila, 'nombre')
     const documento = leer(fila, 'documento')
 
@@ -215,7 +237,7 @@ export function parsearLote(texto: string, anioParametros: number): ResultadoLot
     }
 
     try {
-      filas.push({
+      filasLote.push({
         fila: numeroFila,
         entrada,
         resultado: calcularLiquidacion(entrada),
@@ -230,92 +252,140 @@ export function parsearLote(texto: string, anioParametros: number): ResultadoLot
     }
   })
 
-  return { filas, errores, totalFilas: datos.length }
+  return { filas: filasLote, errores, totalFilas: datos.length }
 }
 
 function valorConcepto(resultado: ResultadoLiquidacion, id: string): number {
   return resultado.conceptos.find((concepto) => concepto.id === id)?.valor ?? 0
 }
 
-/**
- * Neutraliza celdas que comienzan con caracteres que las hojas de cálculo
- * interpretan como fórmula (= + - @), para evitar inyección de fórmulas
- * (CWE-1236) al abrir el CSV exportado en Excel/LibreOffice.
- */
-function protegerCelda(valor: string): string {
-  return /^[=+\-@\t\r]/.test(valor) ? `'${valor}` : valor
+// ---------------------------------------------------------------------------
+// Escritura de Excel (estructura de celdas para `write-excel-file`)
+// ---------------------------------------------------------------------------
+
+type ValorCelda = string | number | boolean | Date | null
+type CeldaXlsx =
+  | ValorCelda
+  | { value: string | number | boolean | Date; fontWeight?: 'bold' }
+
+function negrita(valor: string): CeldaXlsx {
+  return { value: valor, fontWeight: 'bold' }
 }
 
-export function exportarResultadosCSV(filas: FilaLote[]): string {
-  const datos = filas.map(({ fila, entrada, resultado }) => ({
-    fila,
-    documento: protegerCelda(entrada.empleado.documento),
-    nombre: protegerCelda(entrada.empleado.nombre),
-    fecha_ingreso: entrada.contrato.fechaIngreso,
-    fecha_retiro: entrada.contrato.fechaRetiro,
-    dias: resultado.diasTotales,
-    salario_base: resultado.salarioOrdinario,
-    auxilio: resultado.auxilio,
-    cesantias: valorConcepto(resultado, 'cesantias'),
-    intereses: valorConcepto(resultado, 'intereses_cesantias'),
-    prima: valorConcepto(resultado, 'prima'),
-    vacaciones: valorConcepto(resultado, 'vacaciones'),
-    indemnizacion: valorConcepto(resultado, 'indemnizacion'),
-    salario_pendiente: valorConcepto(resultado, 'salario_pendiente'),
-    auxilio_pendiente: valorConcepto(resultado, 'auxilio_pendiente'),
-    sancion_mora: valorConcepto(resultado, 'sancion_mora'),
-    total_devengado: resultado.totalDevengado,
-    deducciones: resultado.totalDeducciones,
-    neto_pagar: resultado.netoPagar,
-    advertencias: resultado.advertencias.join(' | '),
-  }))
+const ENCABEZADOS_PLANTILLA = [
+  'documento',
+  'nombre',
+  'fecha_ingreso',
+  'fecha_retiro',
+  'tipo_contrato',
+  'tipo_salario',
+  'salario_basico',
+  'promedio_variable',
+  'auxilio_transporte',
+  'salario_minimo',
+  'motivo_terminacion',
+  'vacaciones_disfrutadas',
+  'dias_salario_pendiente',
+  'cesantias_consignadas_hasta',
+  'ultimo_pago_prima',
+  'incluir_sancion_mora',
+  'fecha_pago_liquidacion',
+  'otras_deducciones',
+  'retencion_fuente',
+]
 
-  return Papa.unparse(datos, { delimiter: ';' })
+const FILA_EJEMPLO: ValorCelda[] = [
+  '123456789',
+  'Ana Pérez',
+  '2024-01-15',
+  '2026-06-30',
+  'indefinido',
+  'fijo',
+  1_750_905,
+  0,
+  'si',
+  'no',
+  'renuncia',
+  0,
+  0,
+  '2025-12-31',
+  '2026-06-30',
+  'no',
+  '',
+  0,
+  0,
+]
+
+/** Filas de la hoja «Plantilla»: encabezados + una fila de ejemplo. */
+export function plantillaDatos(): CeldaXlsx[][] {
+  return [ENCABEZADOS_PLANTILLA.map(negrita), FILA_EJEMPLO]
 }
 
-export function exportarErroresCSV(errores: ErrorLote[]): string {
-  return Papa.unparse(
-    errores.map((error) => ({
-      fila: error.fila,
-      documento: protegerCelda(error.documento),
-      nombre: protegerCelda(error.nombre),
-      errores: error.errores.join(' | '),
-    })),
-    { delimiter: ';' },
-  )
-}
+/** Filas de la hoja «Resultados» para el lote procesado. */
+export function resultadosDatos(filas: FilaLote[]): CeldaXlsx[][] {
+  const encabezados = [
+    'fila',
+    'documento',
+    'nombre',
+    'fecha_ingreso',
+    'fecha_retiro',
+    'dias',
+    'salario_base',
+    'auxilio',
+    'cesantias',
+    'intereses',
+    'prima',
+    'vacaciones',
+    'indemnizacion',
+    'salario_pendiente',
+    'auxilio_pendiente',
+    'sancion_mora',
+    'total_devengado',
+    'deducciones',
+    'neto_pagar',
+    'advertencias',
+  ]
 
-export function plantillaCSV(): string {
-  return Papa.unparse(
-    [
-      {
-        documento: '123456789',
-        nombre: 'Ana Pérez',
-        fecha_ingreso: '2024-01-15',
-        fecha_retiro: '2026-06-30',
-        tipo_contrato: 'indefinido',
-        tipo_salario: 'fijo',
-        salario_basico: 1750905,
-        promedio_variable: 0,
-        auxilio_transporte: 'si',
-        salario_minimo: 'no',
-        motivo_terminacion: 'renuncia',
-        vacaciones_disfrutadas: 0,
-        dias_salario_pendiente: 0,
-        cesantias_consignadas_hasta: '2025-12-31',
-        ultimo_pago_prima: '2026-06-30',
-        incluir_sancion_mora: 'no',
-        fecha_pago_liquidacion: '',
-        otras_deducciones: 0,
-        retencion_fuente: 0,
-      },
+  const filasDatos = filas.map(
+    ({ fila, entrada, resultado }): ValorCelda[] => [
+      fila,
+      entrada.empleado.documento,
+      entrada.empleado.nombre,
+      entrada.contrato.fechaIngreso,
+      entrada.contrato.fechaRetiro,
+      resultado.diasTotales,
+      resultado.salarioOrdinario,
+      resultado.auxilio,
+      valorConcepto(resultado, 'cesantias'),
+      valorConcepto(resultado, 'intereses_cesantias'),
+      valorConcepto(resultado, 'prima'),
+      valorConcepto(resultado, 'vacaciones'),
+      valorConcepto(resultado, 'indemnizacion'),
+      valorConcepto(resultado, 'salario_pendiente'),
+      valorConcepto(resultado, 'auxilio_pendiente'),
+      valorConcepto(resultado, 'sancion_mora'),
+      resultado.totalDevengado,
+      resultado.totalDeducciones,
+      resultado.netoPagar,
+      resultado.advertencias.join(' | '),
     ],
-    { delimiter: ';' },
   )
+
+  return [encabezados.map(negrita), ...filasDatos]
 }
 
-export function resumenFila(fila: FilaLote): string {
-  return `${fila.entrada.empleado.nombre} · ${formatearFecha(
-    fila.entrada.contrato.fechaRetiro,
-  )}`
+/** Filas de la hoja «Errores» para las filas del lote que no se pudieron procesar. */
+export function erroresDatos(errores: ErrorLote[]): CeldaXlsx[][] {
+  const encabezados = ['fila', 'documento', 'nombre', 'errores']
+
+  const filasDatos = errores.map(
+    (error): ValorCelda[] => [
+      error.fila,
+      error.documento,
+      error.nombre,
+      error.errores.join(' | '),
+    ],
+  )
+
+  return [encabezados.map(negrita), ...filasDatos]
 }

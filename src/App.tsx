@@ -22,7 +22,7 @@ type Vista = 'liquidacion' | 'lote' | 'historial' | 'guia' | 'legal'
 
 const NAV: { id: Vista; etiqueta: string; icono: IconName }[] = [
   { id: 'liquidacion', etiqueta: 'Liquidación', icono: 'calculator' },
-  { id: 'lote', etiqueta: 'Lote CSV', icono: 'table' },
+  { id: 'lote', etiqueta: 'Lote Excel', icono: 'table' },
   { id: 'historial', etiqueta: 'Historial', icono: 'history' },
   { id: 'guia', etiqueta: 'Guía', icono: 'book' },
 ]

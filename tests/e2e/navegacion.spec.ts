@@ -13,9 +13,9 @@ test.describe('Navegación', () => {
       page.getByRole('heading', { name: 'Liquidación laboral definitiva' }),
     ).toBeVisible()
 
-    await header.getByRole('button', { name: 'Lote CSV' }).click()
+    await header.getByRole('button', { name: 'Lote Excel' }).click()
     await expect(
-      page.getByRole('heading', { name: 'Liquida varios trabajadores desde un CSV' }),
+      page.getByRole('heading', { name: 'Liquida varios trabajadores desde un Excel' }),
     ).toBeVisible()
 
     await header.getByRole('button', { name: 'Historial' }).click()

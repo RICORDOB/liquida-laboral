@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { ChangeEvent } from 'react'
+import { readSheet } from 'read-excel-file/browser'
+import writeXlsxFile from 'write-excel-file/browser'
 import { Icon } from '../../components/Icon'
 import {
   Alert,
@@ -9,24 +11,21 @@ import {
   Field,
   SectionTitle,
   Select,
-  Textarea,
 } from '../../components/ui'
 import {
-  exportarErroresCSV,
-  exportarResultadosCSV,
+  erroresDatos,
   parsearLote,
-  plantillaCSV,
-} from '../../engine/csv'
-import type { ResultadoLote } from '../../engine/csv'
+  plantillaDatos,
+  resultadosDatos,
+} from '../../engine/xlsx'
+import type { CeldaLote, ResultadoLote } from '../../engine/xlsx'
 import { formatCOP } from '../../engine/formato'
 import { ANIOS_DISPONIBLES, anioVigente } from '../../engine/parametros'
 import { descargarPDF } from '../../engine/pdf'
-import { descargarTexto } from '../../lib/descargas'
 
 export function LoteView() {
   const [anio, setAnio] = useState(String(anioVigente()))
   const [nombreArchivo, setNombreArchivo] = useState('')
-  const [textoPegado, setTextoPegado] = useState('')
   const [lote, setLote] = useState<ResultadoLote | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -35,9 +34,9 @@ export function LoteView() {
     [lote],
   )
 
-  function procesar(texto: string) {
+  function procesar(filas: CeldaLote[][]) {
     setError(null)
-    const resultado = parsearLote(texto, Number(anio))
+    const resultado = parsearLote(filas, Number(anio))
     if (resultado.totalFilas === 0) {
       setLote(null)
       setError('No se encontraron filas. Revisa que el archivo tenga encabezados y datos.')
@@ -50,14 +49,18 @@ export function LoteView() {
     const archivo = event.target.files?.[0]
     if (!archivo) return
     setNombreArchivo(archivo.name)
-    const texto = await archivo.text()
-    procesar(texto)
+    try {
+      const filas = (await readSheet(archivo)) as unknown as CeldaLote[][]
+      procesar(filas)
+    } catch {
+      setLote(null)
+      setError('No se pudo leer el archivo. Verifica que sea un archivo .xlsx válido.')
+    }
   }
 
   function limpiar() {
     setLote(null)
     setNombreArchivo('')
-    setTextoPegado('')
     setError(null)
   }
 
@@ -69,11 +72,11 @@ export function LoteView() {
           Procesamiento por lote
         </Badge>
         <h1 className="mt-3 text-2xl font-semibold tracking-tight text-slate-900 sm:text-[30px]">
-          Liquida varios trabajadores desde un CSV
+          Liquida varios trabajadores desde un Excel
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
-          Descarga la plantilla, complétala y súbela. Cada fila se valida por
-          separado: los errores no bloquean a los demás trabajadores.
+          Descarga la plantilla, complétala y súbela como .xlsx. Cada fila se
+          valida por separado: los errores no bloquean a los demás trabajadores.
         </p>
       </div>
 
@@ -82,7 +85,7 @@ export function LoteView() {
           <SectionTitle
             icono="upload"
             titulo="Cargar archivo"
-            descripcion="Acepta CSV con separador coma o punto y coma. También puedes pegar el contenido."
+            descripcion="Sube la plantilla completada como archivo .xlsx (Excel)."
           />
           <div className="space-y-4 p-5">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -104,7 +107,7 @@ export function LoteView() {
                 </Select>
               </Field>
 
-              <Field label="Archivo CSV" htmlFor="archivoLote">
+              <Field label="Archivo Excel" htmlFor="archivoLote">
                 <label
                   htmlFor="archivoLote"
                   className="flex h-10 cursor-pointer items-center gap-2 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 text-[12.5px] text-slate-600 transition hover:border-teal-400 hover:bg-teal-50/40"
@@ -117,45 +120,30 @@ export function LoteView() {
                 <input
                   id="archivoLote"
                   type="file"
-                  accept=".csv,text/csv"
+                  accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                   onChange={alSeleccionarArchivo}
                   className="sr-only"
                 />
               </Field>
             </div>
 
-            <Field
-              label="O pega el CSV"
-              htmlFor="textoLote"
-              hint="La primera fila debe tener los encabezados de la plantilla."
-            >
-              <Textarea
-                id="textoLote"
-                rows={6}
-                value={textoPegado}
-                onChange={(event) => setTextoPegado(event.target.value)}
-                placeholder="documento;nombre;fecha_ingreso;fecha_retiro;..."
-                className="font-mono text-[11.5px]"
-              />
-            </Field>
-
             <div className="flex flex-wrap gap-2">
-              <Button onClick={() => procesar(textoPegado)} disabled={!textoPegado.trim()}>
-                <Icon name="calculator" size={15} />
-                Procesar texto
-              </Button>
               <Button
                 variante="outline"
                 onClick={() =>
-                  descargarTexto('plantilla-liquidacion-laboral.csv', plantillaCSV())
+                  void writeXlsxFile(plantillaDatos()).toFile(
+                    'plantilla-liquidacion-laboral.xlsx',
+                  )
                 }
               >
                 <Icon name="download" size={15} />
                 Descargar plantilla
               </Button>
-              <Button variante="ghost" onClick={limpiar}>
-                Limpiar
-              </Button>
+              {lote ? (
+                <Button variante="ghost" onClick={limpiar}>
+                  Limpiar
+                </Button>
+              ) : null}
             </div>
 
             {error ? (
@@ -235,25 +223,26 @@ export function LoteView() {
                   <Button
                     tamano="sm"
                     onClick={() =>
-                      descargarTexto(
-                        'resultados-liquidacion.csv',
-                        exportarResultadosCSV(lote.filas),
+                      void writeXlsxFile(resultadosDatos(lote.filas)).toFile(
+                        'resultados-liquidacion.xlsx',
                       )
                     }
                   >
                     <Icon name="download" size={14} />
-                    Resultados CSV
+                    Resultados Excel
                   </Button>
                   {lote.errores.length > 0 ? (
                     <Button
                       tamano="sm"
                       variante="outline"
                       onClick={() =>
-                        descargarTexto('errores-liquidacion.csv', exportarErroresCSV(lote.errores))
+                        void writeXlsxFile(erroresDatos(lote.errores)).toFile(
+                          'errores-liquidacion.xlsx',
+                        )
                       }
                     >
                       <Icon name="download" size={14} />
-                      Errores CSV
+                      Errores Excel
                     </Button>
                   ) : null}
                 </div>
@@ -355,7 +344,7 @@ export function LoteView() {
           </p>
           <p className="mx-auto mt-1 max-w-md text-[12.5px] text-slate-500">
             Descarga la plantilla, complétala con un trabajador por fila y vuelve a
-            cargarla. También puedes pegar el CSV directamente.
+            cargarla.
           </p>
         </div>
       )}

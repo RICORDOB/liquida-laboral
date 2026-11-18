@@ -23,8 +23,8 @@ que el cálculo sea auditable.
 ## Modos de uso
 
 - **Individual**: formulario guiado con vista previa en vivo y resumen final.
-- **Lote CSV**: procesa varios trabajadores desde una plantilla; los errores de
-  una fila no bloquean a las demás.
+- **Lote Excel**: procesa varios trabajadores desde una plantilla .xlsx; los
+  errores de una fila no bloquean a las demás.
 - **Historial**: guarda casos en `localStorage` y permite exportar/importar JSON.
 - **Guía**: fórmulas, plazos legales, parámetros por año y preguntas frecuentes.
 
@@ -49,7 +49,7 @@ indemnización y el salario pendiente usan el SMMLV del año de retiro.
 - **Vite + React 19 + TypeScript** (UI)
 - **Tailwind CSS v4** (estilos)
 - **Vitest + fast-check** (motor de cálculo y pruebas de propiedades)
-- **PapaParse** (CSV)
+- **read-excel-file + write-excel-file** (Excel .xlsx)
 - **jsPDF + jspdf-autotable** (PDF)
 
 El motor de cálculo es TypeScript puro en `src/engine/`, independiente del
@@ -66,7 +66,7 @@ src/
 │   ├── formato.ts     # Formato COP / números
 │   ├── formulario.ts  # Conversión formulario <-> entrada
 │   ├── validacion.ts  # Validación de entradas
-│   ├── csv.ts         # Procesamiento por lote
+│   ├── xlsx.ts        # Procesamiento por lote (Excel)
 │   └── pdf.ts         # Generación de PDF
 ├── lib/           # Persistencia y utilidades del navegador
 │   ├── storage.ts     # localStorage (casos y borrador)
@@ -75,7 +75,7 @@ src/
 ├── components/    # UI base (Icon, Card, Button, Field...)
 ├── features/
 │   ├── liquidacion/   # Formulario + resultado
-│   ├── lote/          # Procesamiento CSV
+│   ├── lote/          # Procesamiento Excel (.xlsx)
 │   ├── historial/     # Casos guardados
 │   ├── guia/          # Fórmulas y referencia
 │   └── legal/         # Aviso, privacidad y términos
@@ -120,6 +120,6 @@ usar la app con datos reales.
 ## Privacidad
 
 Nada sale del navegador: no hay analítica, cookies ni llamadas a terceros. Los
-datos se guardan en `localStorage` y se exportan a PDF/CSV/JSON solo cuando tú lo
+datos se guardan en `localStorage` y se exportan a PDF/Excel/JSON solo cuando tú lo
 decides. En equipos compartidos, usa un perfil exclusivo y borra la información
 al terminar.
