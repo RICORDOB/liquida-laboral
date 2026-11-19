@@ -1,6 +1,5 @@
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import { ADVERTENCIA_GENERAL } from './calculo'
 import { formatearFecha } from './fechas'
 import { formatCOP, formatDias } from './formato'
 import type { ResultadoLiquidacion } from './types'
@@ -134,8 +133,8 @@ export function generarPDF(
     theme: 'grid',
     styles: {
       font: 'helvetica',
-      fontSize: 7,
-      cellPadding: 2,
+      fontSize: 8.5,
+      cellPadding: 2.4,
       textColor: SLATE,
       lineColor: LINE,
       lineWidth: 0.1,
@@ -145,7 +144,7 @@ export function generarPDF(
       fillColor: TEAL,
       textColor: 255,
       fontStyle: 'bold',
-      fontSize: 7.2,
+      fontSize: 8.8,
     },
     alternateRowStyles: { fillColor: SOFT },
     columnStyles: {
@@ -186,13 +185,13 @@ export function generarPDF(
       theme: 'grid',
       styles: {
         font: 'helvetica',
-        fontSize: 7,
-        cellPadding: 2,
+        fontSize: 8.5,
+        cellPadding: 2.4,
         textColor: SLATE,
         lineColor: LINE,
         lineWidth: 0.1,
       },
-      headStyles: { fillColor: [190, 24, 93], textColor: 255, fontSize: 7.2 },
+      headStyles: { fillColor: [190, 24, 93], textColor: 255, fontSize: 8.8 },
       alternateRowStyles: { fillColor: SOFT },
       columnStyles: {
         0: { cellWidth: 55 },
@@ -234,30 +233,6 @@ export function generarPDF(
 
   y += 33
 
-  if (resultado.advertencias.length > 0) {
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(8.5)
-    doc.setTextColor(180, 83, 9)
-    doc.text('Advertencias', margen, y)
-    y += 4
-
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(7.5)
-    doc.setTextColor(...MUTED)
-
-    for (const advertencia of resultado.advertencias) {
-      const lineas = doc.splitTextToSize(`- ${advertencia}`, anchoUtil)
-      if (y + lineas.length * 3.4 > 275) {
-        doc.addPage()
-        y = 20
-      }
-      doc.text(lineas, margen, y)
-      y += lineas.length * 3.4 + 1
-    }
-
-    y += 3
-  }
-
   if (y > 250) {
     doc.addPage()
     y = 20
@@ -273,9 +248,7 @@ export function generarPDF(
   doc.setTextColor(...MUTED)
   const parametrosTexto = `SMMLV ${parametros.anio}: ${formatCOP(
     parametros.smmlv,
-  )} · Auxilio: ${formatCOP(parametros.auxilioTransporte)} · UVT: ${formatCOP(
-    parametros.uvt,
-  )} · Fuente: ${parametros.fuente}`
+  )} · Auxilio: ${formatCOP(parametros.auxilioTransporte)} · Fuente: ${parametros.fuente}`
   doc.text(doc.splitTextToSize(parametrosTexto, anchoUtil), margen, y)
   y += 8
 
@@ -312,16 +285,6 @@ export function generarPDF(
     }
     y += 4
   }
-
-  if (y > 260) {
-    doc.addPage()
-    y = 20
-  }
-
-  const disclaimer = doc.splitTextToSize(ADVERTENCIA_GENERAL, anchoUtil)
-  doc.setFontSize(6.8)
-  doc.setTextColor(100, 116, 139)
-  doc.text(disclaimer, margen, y)
 
   const totalPaginas = doc.getNumberOfPages()
   for (let pagina = 1; pagina <= totalPaginas; pagina += 1) {
