@@ -39,6 +39,21 @@ const ALIAS: Record<string, string> = {
   nombres: 'nombre',
   trabajador: 'nombre',
   empleado: 'nombre',
+  primer_nombre: 'nombre',
+  segundo_nombre: 'nombre',
+  tercer_nombre: 'nombre',
+  primer_apellido: 'nombre',
+  segundo_apellido: 'nombre',
+  apellido: 'nombre',
+  apellidos: 'nombre',
+  apellido_paterno: 'nombre',
+  apellido_materno: 'nombre',
+  nombre_completo: 'nombre',
+  nombres_y_apellidos: 'nombre',
+  nombre_1: 'nombre',
+  nombre_2: 'nombre',
+  apellido_1: 'nombre',
+  apellido_2: 'nombre',
   fecha_ingreso: 'fecha_ingreso',
   ingreso: 'fecha_ingreso',
   fecha_inicio: 'fecha_ingreso',
@@ -343,15 +358,15 @@ export function sugerirMapeo(filas: CeldaLote[][]): string[] {
     }
   }
 
-  // Texto con espacios → nombre (el primero que quede sin asignar).
+  // Texto → nombre. Todas las columnas de texto (nombres y apellidos separados
+  // en varias columnas) se asignan a 'nombre' y luego se concatenan al procesar.
   for (const [i, vals] of columnas.entries()) {
     if (asignaciones[i]) continue
     if (vals.length === 0) continue
-    const esTexto = vals.some((v) => /\s/.test(v))
-    if (esTexto && !vals.every(esNumero) && !vals.every(esBooleano)) {
-      asignaciones[i] = 'nombre'
-      break
-    }
+    if (vals.every(esNumero) || vals.every(esBooleano)) continue
+    if (vals.every((v) => aFechaISO(v) !== '')) continue
+    const unicos = new Set(vals.map((v) => normalizarTexto(v))).size
+    if (unicos === vals.length) asignaciones[i] = 'nombre'
   }
 
   return asignaciones
@@ -374,9 +389,18 @@ export function parsearLote(filas: CeldaLote[][], anioParametros: number): Resul
   datos.forEach((filaCeldas, indice) => {
     const numeroFila = indice + 2 // +1 por índice, +1 por encabezado
     const fila: Record<string, string> = {}
+    const partesNombre: string[] = []
     encabezados.forEach((encabezado, col) => {
-      fila[encabezado] = celdaATexto(filaCeldas[col] ?? null)
+      const valor = celdaATexto(filaCeldas[col] ?? null)
+      // Varias columnas de nombre (primer/segundo nombre, apellidos) se
+      // concatenan en el orden en que aparecen.
+      if (encabezado === 'nombre') {
+        if (valor.trim()) partesNombre.push(valor.trim())
+      } else {
+        fila[encabezado] = valor
+      }
     })
+    if (partesNombre.length > 0) fila.nombre = partesNombre.join(' ')
 
     const nombre = leer(fila, 'nombre')
     const documento = leer(fila, 'documento')

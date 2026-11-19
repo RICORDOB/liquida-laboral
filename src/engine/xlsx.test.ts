@@ -196,4 +196,55 @@ describe('mapeo automático', () => {
     expect(mapeo[0]).toBe('documento')
     expect(mapeo[4]).toBe('salario_basico')
   })
+
+  it('sugiere varias columnas de nombre para concatenarlas', () => {
+    const filas: (string | number)[][] = [
+      ['123', 'Juan', 'Carlos', 'Pérez', 'García', '2024-01-15', '2026-06-30', 1_750_905],
+      ['456', 'María', 'José', 'López', 'Díaz', '2024-03-01', '2026-06-30', 2_000_000],
+    ]
+    expect(sugerirMapeo(filas)).toEqual([
+      'documento',
+      'nombre',
+      'nombre',
+      'nombre',
+      'nombre',
+      'fecha_ingreso',
+      'fecha_retiro',
+      'salario_basico',
+    ])
+  })
+})
+
+describe('concatenación de nombres', () => {
+  it('concatena primer/segundo nombre y apellidos en el orden de las columnas', () => {
+    const lote = parsearLote(
+      [
+        [
+          'documento',
+          'primer_nombre',
+          'segundo_nombre',
+          'primer_apellido',
+          'segundo_apellido',
+          'fecha_ingreso',
+          'fecha_retiro',
+          'salario_basico',
+        ],
+        ['123', 'Juan', 'Carlos', 'Pérez', 'García', '2024-01-15', '2026-06-30', '1750905'],
+      ],
+      2026,
+    )
+    expect(lote.errores).toHaveLength(0)
+    expect(lote.filas[0].entrada.empleado.nombre).toBe('Juan Carlos Pérez García')
+  })
+
+  it('concatena nombres y apellidos cuando vienen en dos columnas', () => {
+    const lote = parsearLote(
+      [
+        ['documento', 'nombres', 'apellidos', 'fecha_ingreso', 'fecha_retiro', 'salario_basico'],
+        ['123', 'Ana María', 'Pérez García', '2024-01-15', '2026-06-30', '1750905'],
+      ],
+      2026,
+    )
+    expect(lote.filas[0].entrada.empleado.nombre).toBe('Ana María Pérez García')
+  })
 })
