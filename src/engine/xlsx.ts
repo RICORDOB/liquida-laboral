@@ -103,7 +103,9 @@ function aFecha(valor: string): string {
 
   if (/^\d+(\.\d+)?$/.test(limpio)) {
     const serial = Number(limpio)
-    if (serial > 20_000) {
+    // Los seriales de fecha de Excel relevantes van de ~20.000 (1954) a ~73.050
+    // (2100). Un número mayor (p. ej. un salario) no es una fecha.
+    if (serial > 20_000 && serial < 100_000) {
       const fecha = new Date(Date.UTC(1899, 11, 30) + serial * 86_400_000)
       const anio = fecha.getUTCFullYear()
       const mes = String(fecha.getUTCMonth() + 1).padStart(2, '0')
@@ -233,6 +235,126 @@ function detectarDelimitador(lineas: string[]): string {
   }
 
   return mejor
+}
+
+/** Campos asignables en el mapeo automático, en orden de prioridad visual. */
+export const CAMPOS_LOTE = [
+  'documento',
+  'nombre',
+  'fecha_ingreso',
+  'fecha_retiro',
+  'salario_basico',
+  'salario_minimo',
+  'auxilio_transporte',
+  'tipo_contrato',
+  'tipo_salario',
+  'motivo_terminacion',
+  'vacaciones_disfrutadas',
+  'dias_salario_pendiente',
+  'fecha_fin_contrato',
+  'cesantias_consignadas_hasta',
+  'ultimo_pago_prima',
+  'prima_junio_pagada',
+  'incluir_sancion_mora',
+  'fecha_pago_liquidacion',
+  'otras_deducciones',
+  'retencion_fuente',
+] as const
+
+/**
+ * Devuelve `true` si la primera fila es un encabezado reconocible: la mayoría de
+ * sus celdas no vacías mapean (vía alias) a un campo conocido.
+ */
+export function reconocerEncabezados(fila: CeldaLote[]): boolean {
+  const celdas = fila.map((celda) => normalizarHeader(celdaATexto(celda)))
+  const noVacias = celdas.filter((celda) => celda.trim() !== '')
+  if (noVacias.length === 0) return false
+  const reconocidas = noVacias.filter((celda) =>
+    (CAMPOS_LOTE as readonly string[]).includes(celda),
+  )
+  return reconocidas.length / noVacias.length >= 0.6
+}
+
+function aFechaISO(valor: string): string {
+  const resultado = aFecha(valor)
+  return /^\d{4}-\d{2}-\d{2}$/.test(resultado) ? resultado : ''
+}
+
+function esNumero(valor: string): boolean {
+  const texto = valor.trim()
+  if (!texto) return false
+  return /^[\d.,\s-]+$/.test(texto) && /\d/.test(texto)
+}
+
+function esBooleano(valor: string): boolean {
+  return ['si', 'no', 'true', 'false', '1', '0', 'x', 'yes', 'aplica'].includes(
+    normalizarTexto(valor),
+  )
+}
+
+/**
+ * Sugiere, para cada columna, a qué campo corresponde. Es un mejor esfuerzo: las
+ * fechas se ordenan por su valor mínimo (ingreso / retiro / fin), los números
+ * únicos sin separador de miles se asumen documento y el resto salario, y el
+ * primer texto con espacios se asume nombre. El usuario confirma o corrige.
+ */
+export function sugerirMapeo(filas: CeldaLote[][]): string[] {
+  const nCols = filas.reduce((max, fila) => Math.max(max, fila.length), 0)
+  const columnas: string[][] = Array.from({ length: nCols }, (_, col) =>
+    filas
+      .slice(0, 20)
+      .map((fila) => celdaATexto(fila[col] ?? null).trim())
+      .filter(Boolean),
+  )
+
+  const asignaciones = new Array<string>(nCols).fill('')
+
+  // Fechas: la más antigua → ingreso, la más reciente → retiro, intermedias → fin.
+  const fechas = columnas
+    .map((vals, i) => ({ i, vals }))
+    .filter(({ vals }) => vals.length > 0 && vals.every((v) => aFechaISO(v) !== ''))
+    .map(({ i, vals }) => ({ i, min: vals.map(aFechaISO).sort()[0] }))
+    .sort((a, b) => a.min.localeCompare(b.min))
+
+  if (fechas.length >= 1) asignaciones[fechas[0].i] = 'fecha_ingreso'
+  if (fechas.length >= 2) asignaciones[fechas[fechas.length - 1].i] = 'fecha_retiro'
+  for (let k = 1; k < fechas.length - 1; k++) asignaciones[fechas[k].i] = 'fecha_fin_contrato'
+
+  // Números: el que tenga separador de miles es salario; del resto, el primero
+  // (de izquierda a derecha) se asume documento y el siguiente, salario. Los
+  // demás quedan sin asignar para que el usuario decida.
+  const numericas = columnas
+    .map((vals, i) => ({ i, vals }))
+    .filter(({ vals }) => vals.length > 0 && vals.every(esNumero))
+
+  for (const { i, vals } of numericas) {
+    const tieneSeparador = vals.some((v) => /\.\d{3}/.test(v) || /,\d{3}/.test(v))
+    if (tieneSeparador) asignaciones[i] = 'salario_basico'
+  }
+
+  let documentoAsignado = false
+  for (const { i } of numericas) {
+    if (asignaciones[i]) continue
+    if (!documentoAsignado) {
+      asignaciones[i] = 'documento'
+      documentoAsignado = true
+    } else {
+      asignaciones[i] = 'salario_basico'
+    }
+  }
+
+  // Texto con espacios → nombre (el primero que quede sin asignar).
+  for (const [i, vals] of columnas.entries()) {
+    if (asignaciones[i]) continue
+    if (vals.length === 0) continue
+    const esTexto = vals.some((v) => /\s/.test(v))
+    if (esTexto && !vals.every(esNumero) && !vals.every(esBooleano)) {
+      asignaciones[i] = 'nombre'
+      break
+    }
+  }
+
+  return asignaciones
 }
 
 /**

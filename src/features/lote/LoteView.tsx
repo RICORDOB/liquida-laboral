@@ -8,16 +8,20 @@ import {
   Badge,
   Button,
   Card,
+  Checkbox,
   Field,
   SectionTitle,
   Select,
 } from '../../components/ui'
 import {
+  CAMPOS_LOTE,
   erroresDatos,
   parsearLote,
   plantillaCompletaDatos,
   plantillaDatos,
+  reconocerEncabezados,
   resultadosDatos,
+  sugerirMapeo,
   textoACeldas,
 } from '../../engine/xlsx'
 import type { CeldaLote, ResultadoLote } from '../../engine/xlsx'
@@ -32,6 +36,11 @@ export function LoteView() {
   const [lote, setLote] = useState<ResultadoLote | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [textoPegado, setTextoPegado] = useState('')
+  const [pendienteMapeo, setPendienteMapeo] = useState<{
+    celdas: CeldaLote[][]
+    asignaciones: string[]
+    esHeader: boolean
+  } | null>(null)
 
   const totalNeto = useMemo(
     () => lote?.filas.reduce((total, fila) => total + fila.resultado.netoPagar, 0) ?? 0,
@@ -50,15 +59,56 @@ export function LoteView() {
     setLote(resultado)
   }
 
-  function procesarTexto() {
-    const celdas = textoACeldas(textoPegado)
+  /**
+   * Enruta las celdas entrantes: si la primera fila es un encabezado reconocible
+   * procesa directo; si no, abre el asistente de mapeo de columnas.
+   */
+  function encolarMapeo(celdas: CeldaLote[][]) {
+    setPendienteMapeo(null)
     if (celdas.length === 0) {
       setLote(null)
       setError('No se encontraron datos. Pega celdas copiadas de Excel/Sheets o un CSV.')
       return
     }
+    if (reconocerEncabezados(celdas[0])) {
+      procesar(celdas)
+      return
+    }
+    setPendienteMapeo({
+      celdas,
+      asignaciones: sugerirMapeo(celdas),
+      esHeader: false,
+    })
+  }
+
+  function setEsHeader(esHeader: boolean) {
+    setPendienteMapeo((prev) =>
+      prev
+        ? {
+            ...prev,
+            esHeader,
+            asignaciones: sugerirMapeo(esHeader ? prev.celdas.slice(1) : prev.celdas),
+          }
+        : prev,
+    )
+  }
+
+  function confirmarMapeo() {
+    if (!pendienteMapeo) return
+    const { celdas, asignaciones, esHeader } = pendienteMapeo
+    const encabezado = asignaciones.map((campo) => campo || 'ignorar')
+    const filasProcesar = esHeader
+      ? [encabezado, ...celdas.slice(1)]
+      : [encabezado, ...celdas]
+    setPendienteMapeo(null)
+    setNombreArchivo('datos-mapeados')
+    procesar(filasProcesar)
+  }
+
+  function procesarTexto() {
+    const celdas = textoACeldas(textoPegado)
     setNombreArchivo('datos-pegados')
-    procesar(celdas)
+    encolarMapeo(celdas)
   }
 
   async function alSeleccionarArchivo(event: ChangeEvent<HTMLInputElement>) {
@@ -67,7 +117,7 @@ export function LoteView() {
     setNombreArchivo(archivo.name)
     try {
       const filas = (await readSheet(archivo)) as unknown as CeldaLote[][]
-      procesar(filas)
+      encolarMapeo(filas)
     } catch {
       setLote(null)
       setError('No se pudo leer el archivo. Verifica que sea un archivo .xlsx válido.')
@@ -78,6 +128,8 @@ export function LoteView() {
     setLote(null)
     setNombreArchivo('')
     setError(null)
+    setPendienteMapeo(null)
+    setTextoPegado('')
   }
 
   return (
@@ -240,6 +292,102 @@ export function LoteView() {
           </div>
         </Card>
       </div>
+
+      {pendienteMapeo ? (
+        <Card className="overflow-hidden">
+          <div className="border-b border-slate-100 px-5 py-4">
+            <h2 className="text-[14px] font-semibold text-slate-900">
+              Asigna las columnas
+            </h2>
+            <p className="mt-1 text-[12.5px] text-slate-500">
+              No reconocimos los encabezados. Confirma a qué campo corresponde cada
+              columna; las que dejes en «ignorar» no se usan.
+            </p>
+          </div>
+          <div className="space-y-3 p-5">
+            <Checkbox
+              id="esHeader"
+              checked={pendienteMapeo.esHeader}
+              onChange={setEsHeader}
+              label="La primera fila es un encabezado"
+              hint="Márcalo si tu bloque de datos empieza con una fila de títulos."
+            />
+
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-left text-[12px]">
+                <thead>
+                  <tr className="bg-slate-50/70">
+                    {Array.from({
+                      length: Math.max(...pendienteMapeo.celdas.map((fila) => fila.length)),
+                    }).map((_, col) => (
+                      <th key={col} className="border border-slate-200 p-1.5 align-top">
+                        <select
+                          value={pendienteMapeo.asignaciones[col] ?? ''}
+                          onChange={(event) =>
+                            setPendienteMapeo((prev) =>
+                              prev
+                                ? {
+                                    ...prev,
+                                    asignaciones: prev.asignaciones.map((campo, i) =>
+                                      i === col ? event.target.value : campo,
+                                    ),
+                                  }
+                                : prev,
+                            )
+                          }
+                          className="h-8 w-full min-w-[130px] rounded-lg border border-slate-300 bg-white px-2 text-[12px] text-slate-800 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                        >
+                          <option value="">— ignorar —</option>
+                          {CAMPOS_LOTE.map((campo) => (
+                            <option key={campo} value={campo}>
+                              {campo}
+                            </option>
+                          ))}
+                        </select>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(pendienteMapeo.esHeader
+                    ? pendienteMapeo.celdas.slice(1)
+                    : pendienteMapeo.celdas
+                  )
+                    .slice(0, 4)
+                    .map((fila, idx) => (
+                      <tr key={idx}>
+                        {Array.from({
+                          length: Math.max(
+                            ...pendienteMapeo.celdas.map((fila) => fila.length),
+                          ),
+                        }).map((_, col) => (
+                          <td
+                            key={col}
+                            className="whitespace-nowrap border border-slate-100 px-2 py-1.5 text-slate-600"
+                          >
+                            {fila[col] === null || fila[col] === undefined
+                              ? ''
+                              : String(fila[col])}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={confirmarMapeo}>
+                <Icon name="check" size={15} />
+                Procesar con este mapeo
+              </Button>
+              <Button variante="ghost" onClick={() => setPendienteMapeo(null)}>
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </Card>
+      ) : null}
 
       {lote ? (
         <div className="space-y-4">

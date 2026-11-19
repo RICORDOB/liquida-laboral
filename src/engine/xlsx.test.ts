@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { EntradaLiquidacion } from './types'
 import { validarEntrada } from './validacion'
-import { parsearLote, textoACeldas } from './xlsx'
+import { parsearLote, reconocerEncabezados, sugerirMapeo, textoACeldas } from './xlsx'
 
 function entradaMinima(
   contrato: Partial<EntradaLiquidacion['contrato']> = {},
@@ -158,5 +158,42 @@ describe('validarEntrada modo lote', () => {
     )
     expect(validacion.ok).toBe(true)
     expect(validacion.advertencias.some((a) => a.includes('cesantías'))).toBe(true)
+  })
+})
+
+describe('mapeo automático', () => {
+  it('reconoce una fila de encabezados conocidos (con alias)', () => {
+    expect(
+      reconocerEncabezados(['documento', 'nombre', 'fecha_ingreso', 'fecha_retiro', 'salario_basico']),
+    ).toBe(true)
+    expect(reconocerEncabezados(['cedula', 'trabajador', 'ingreso', 'retiro', 'salario'])).toBe(true)
+  })
+
+  it('no confunde una fila de datos con un encabezado', () => {
+    expect(reconocerEncabezados(['123', 'Ana Pérez', '2024-01-15', '2026-06-30', '1750905'])).toBe(false)
+  })
+
+  it('sugiere el mapeo de un bloque de datos sin encabezado', () => {
+    const filas: (string | number)[][] = [
+      ['123', 'Ana Pérez', '2024-01-15', '2026-06-30', 1_750_905],
+      ['456', 'Juan Roto', '2024-03-01', '2026-06-30', 2_000_000],
+    ]
+    expect(sugerirMapeo(filas)).toEqual([
+      'documento',
+      'nombre',
+      'fecha_ingreso',
+      'fecha_retiro',
+      'salario_basico',
+    ])
+  })
+
+  it('detecta salario con separador de miles y documento sin separador', () => {
+    const filas: (string | number)[][] = [
+      ['1032456789', 'Ana Pérez', '2024-01-15', '2026-06-30', '1.750.905'],
+      ['987654321', 'Juan Roto', '2024-03-01', '2026-06-30', '2.000.000'],
+    ]
+    const mapeo = sugerirMapeo(filas)
+    expect(mapeo[0]).toBe('documento')
+    expect(mapeo[4]).toBe('salario_basico')
   })
 })

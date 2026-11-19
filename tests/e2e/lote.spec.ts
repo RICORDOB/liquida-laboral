@@ -124,4 +124,22 @@ test.describe('Lote Excel', () => {
     await expect(page.getByText('Filas con errores (1)')).toBeVisible()
     await expect(page.getByRole('cell', { name: 'Ana Pérez', exact: true })).toBeVisible()
   })
+
+  test('abre el mapeo automático cuando los datos no traen encabezado', async ({ page }) => {
+    const texto = [
+      '123\tAna Pérez\t2024-01-15\t2026-06-30\t1750905',
+      '456\tJuan Roto\t2024-03-01\t2026-06-30\t2000000',
+    ].join('\n')
+
+    await page.locator('#textoPegado').fill(texto)
+    await page.getByRole('button', { name: 'Procesar datos pegados' }).click()
+
+    // Aparece el asistente de mapeo; se confirma con las sugerencias automáticas.
+    await expect(page.getByText('Asigna las columnas')).toBeVisible()
+    await page.getByRole('button', { name: 'Procesar con este mapeo' }).click()
+
+    await expect(page.getByText('Resultados (2)')).toBeVisible()
+    await expect(page.getByRole('cell', { name: 'Ana Pérez', exact: true })).toBeVisible()
+    await expect(page.getByRole('cell', { name: 'Juan Roto', exact: true })).toBeVisible()
+  })
 })
