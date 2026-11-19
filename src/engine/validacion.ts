@@ -2,21 +2,52 @@ import { fechaValida } from './fechas'
 import { getParametros, PARAMETROS } from './parametros'
 import type { EntradaLiquidacion, ErrorValidacion, ValidacionEntrada } from './types'
 
-export function validarEntrada(entrada: EntradaLiquidacion): ValidacionEntrada {
+export type ModoValidacion = 'formulario' | 'lote'
+
+/**
+ * Campos que, en modo `lote`, bloquean la fila. El resto se degrada a
+ * advertencia y la fila se procesa igual (el motor ya aplica valores por
+ * defecto y clampa negativos).
+ */
+const CRITICOS_LOTE = new Set(['nombre', 'documento', 'fechaIngreso', 'fechaRetiro', 'salarioBasico'])
+
+export function validarEntrada(
+  entrada: EntradaLiquidacion,
+  modo: ModoValidacion = 'formulario',
+): ValidacionEntrada {
   const errores: ErrorValidacion[] = []
   const advertencias: string[] = []
   const { empleado, contrato, terminacion } = entrada
 
+  /**
+   * En modo formulario todo es error. En modo lote solo los campos críticos
+   * (nombre, documento, fechas y salario) bloquean; los demás se acumulan como
+   * advertencias para no descartar la fila.
+   */
+  const registrar = (campo: string, mensaje: string): void => {
+    if (modo === 'formulario' || CRITICOS_LOTE.has(campo)) {
+      errores.push({ campo, mensaje })
+    } else {
+      advertencias.push(mensaje)
+    }
+  }
+
   if (!empleado.nombre.trim()) {
-    errores.push({ campo: 'nombre', mensaje: 'Ingresa el nombre del trabajador.' })
+    registrar('nombre', 'Ingresa el nombre del trabajador.')
+  }
+
+  // El documento solo es obligatorio en lote (en el formulario individual se
+  // mantiene opcional para no romper historial ni borradores existentes).
+  if (modo === 'lote' && !empleado.documento.trim()) {
+    errores.push({ campo: 'documento', mensaje: 'Falta el documento de identidad.' })
   }
 
   if (!fechaValida(contrato.fechaIngreso)) {
-    errores.push({ campo: 'fechaIngreso', mensaje: 'La fecha de ingreso no es válida.' })
+    registrar('fechaIngreso', 'La fecha de ingreso no es válida.')
   }
 
   if (!fechaValida(contrato.fechaRetiro)) {
-    errores.push({ campo: 'fechaRetiro', mensaje: 'La fecha de retiro no es válida.' })
+    registrar('fechaRetiro', 'La fecha de retiro no es válida.')
   }
 
   if (
@@ -24,100 +55,64 @@ export function validarEntrada(entrada: EntradaLiquidacion): ValidacionEntrada {
     fechaValida(contrato.fechaRetiro) &&
     contrato.fechaRetiro < contrato.fechaIngreso
   ) {
-    errores.push({
-      campo: 'fechaRetiro',
-      mensaje: 'La fecha de retiro no puede ser anterior a la fecha de ingreso.',
-    })
+    registrar('fechaRetiro', 'La fecha de retiro no puede ser anterior a la fecha de ingreso.')
   }
 
   if (!contrato.salarioEsMinimo && contrato.salarioBasico <= 0) {
-    errores.push({ campo: 'salarioBasico', mensaje: 'El salario básico debe ser mayor que cero.' })
+    registrar('salarioBasico', 'El salario básico debe ser mayor que cero.')
   }
 
   if (contrato.tipo === 'fijo') {
     if (!fechaValida(contrato.fechaFinContrato)) {
-      errores.push({
-        campo: 'fechaFinContrato',
-        mensaje: 'Para contrato a término fijo debes indicar la fecha de fin.',
-      })
+      registrar(
+        'fechaFinContrato',
+        'Para contrato a término fijo debes indicar la fecha de fin.',
+      )
     } else if (
       fechaValida(contrato.fechaIngreso) &&
       contrato.fechaFinContrato < contrato.fechaIngreso
     ) {
-      errores.push({
-        campo: 'fechaFinContrato',
-        mensaje: 'La fecha de fin no puede ser anterior a la fecha de ingreso.',
-      })
+      registrar('fechaFinContrato', 'La fecha de fin no puede ser anterior a la fecha de ingreso.')
     }
   }
 
   if (contrato.tipoSalario === 'variable' && contrato.promedioVariable < 0) {
-    errores.push({
-      campo: 'promedioVariable',
-      mensaje: 'El promedio variable no puede ser negativo.',
-    })
+    registrar('promedioVariable', 'El promedio variable no puede ser negativo.')
   }
 
   if (terminacion.diasVacacionesDisfrutados < 0) {
-    errores.push({
-      campo: 'diasVacacionesDisfrutados',
-      mensaje: 'Los días de vacaciones disfrutados no pueden ser negativos.',
-    })
+    registrar('diasVacacionesDisfrutados', 'Los días de vacaciones disfrutados no pueden ser negativos.')
   }
 
   if (terminacion.diasSalarioPendiente < 0) {
-    errores.push({
-      campo: 'diasSalarioPendiente',
-      mensaje: 'Los días de salario pendiente no pueden ser negativos.',
-    })
+    registrar('diasSalarioPendiente', 'Los días de salario pendiente no pueden ser negativos.')
   }
 
-  if (
-    terminacion.cesantiasConsignadasHasta &&
-    !fechaValida(terminacion.cesantiasConsignadasHasta)
-  ) {
-    errores.push({
-      campo: 'cesantiasConsignadasHasta',
-      mensaje: 'La fecha de cesantías consignadas no es válida.',
-    })
+  if (terminacion.cesantiasConsignadasHasta && !fechaValida(terminacion.cesantiasConsignadasHasta)) {
+    registrar('cesantiasConsignadasHasta', 'La fecha de cesantías consignadas no es válida.')
   }
 
   if (terminacion.ultimoPagoPrima && !fechaValida(terminacion.ultimoPagoPrima)) {
-    errores.push({
-      campo: 'ultimoPagoPrima',
-      mensaje: 'La fecha de último pago de prima no es válida.',
-    })
+    registrar('ultimoPagoPrima', 'La fecha de último pago de prima no es válida.')
   }
 
   if (terminacion.incluirSancionMora) {
     if (!fechaValida(terminacion.fechaPagoLiquidacion)) {
-      errores.push({
-        campo: 'fechaPagoLiquidacion',
-        mensaje: 'Indica la fecha de pago para calcular la sanción por mora.',
-      })
+      registrar('fechaPagoLiquidacion', 'Indica la fecha de pago para calcular la sanción por mora.')
     } else if (
       fechaValida(contrato.fechaRetiro) &&
       terminacion.fechaPagoLiquidacion < contrato.fechaRetiro
     ) {
-      errores.push({
-        campo: 'fechaPagoLiquidacion',
-        mensaje: 'La fecha de pago no puede ser anterior a la fecha de retiro.',
-      })
+      registrar('fechaPagoLiquidacion', 'La fecha de pago no puede ser anterior a la fecha de retiro.')
     }
   }
 
   if (terminacion.otrasDeducciones < 0) {
-    errores.push({
-      campo: 'otrasDeducciones',
-      mensaje: 'Las otras deducciones no pueden ser negativas.',
-    })
+    registrar('otrasDeducciones', 'Las otras deducciones no pueden ser negativas.')
   }
 
   if (terminacion.retencionFuente < 0) {
-    errores.push({
-      campo: 'retencionFuente',
-      mensaje: 'La retención en la fuente no puede ser negativa.',
-    })
+    registrar('retencionFuente', 'La retención en la fuente no puede ser negativa.')
   }
 
   if (!PARAMETROS[entrada.anioParametros]) {

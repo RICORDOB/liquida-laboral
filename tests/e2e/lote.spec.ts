@@ -108,4 +108,20 @@ test.describe('Lote Excel', () => {
       page.getByText('No se encontraron filas. Revisa que el archivo tenga encabezados y datos.'),
     ).toBeVisible()
   })
+
+  test('procesa datos pegados directamente desde el portapapeles', async ({ page }) => {
+    const texto = [
+      'documento\tnombre\tfecha_ingreso\tfecha_retiro\tsalario_basico',
+      '123\tAna Pérez\t2024-01-15\t2026-06-30\t1750905',
+      '456\tJuan Roto\t2024-01-15\t2026-06-30\t0',
+    ].join('\n')
+
+    await page.locator('#textoPegado').fill(texto)
+    await page.getByRole('button', { name: 'Procesar datos pegados' }).click()
+
+    await expect(page.getByText('Filas leídas')).toBeVisible()
+    await expect(page.getByText('Resultados (1)')).toBeVisible()
+    await expect(page.getByText('Filas con errores (1)')).toBeVisible()
+    await expect(page.getByRole('cell', { name: 'Ana Pérez', exact: true })).toBeVisible()
+  })
 })

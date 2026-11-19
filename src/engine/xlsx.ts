@@ -116,7 +116,29 @@ function aFecha(valor: string): string {
 }
 
 function aMoneda(valor: string): number {
-  const limpio = valor.replace(/[^\d-]/g, '')
+  const texto = String(valor ?? '').trim()
+  if (!texto) return 0
+
+  const ultPunto = texto.lastIndexOf('.')
+  const ultComa = texto.lastIndexOf(',')
+
+  let limpio = texto
+  if (ultPunto >= 0 && ultComa >= 0) {
+    // Hay punto y coma: el que esté más a la derecha es el separador decimal.
+    if (ultPunto > ultComa) {
+      limpio = texto.replace(/,/g, '') // coma = miles, punto = decimal
+    } else {
+      limpio = texto.replace(/\./g, '').replace(',', '.') // punto = miles, coma = decimal
+    }
+  } else if (ultComa >= 0) {
+    // Solo coma: decimal si deja 1-2 dígitos al final; si no, separador de miles.
+    limpio = /,\d{1,2}$/.test(texto) ? texto.replace(',', '.') : texto.replace(/,/g, '')
+  } else if (ultPunto >= 0) {
+    // Solo punto: decimal si deja 1-2 dígitos al final; si no, separador de miles.
+    limpio = /\.\d{1,2}$/.test(texto) ? texto : texto.replace(/\./g, '')
+  }
+
+  limpio = limpio.replace(/[^\d.-]/g, '')
   const numero = Number(limpio)
   return Number.isFinite(numero) ? numero : 0
 }
@@ -135,7 +157,7 @@ function aTipoContrato(valor: string): TipoContrato {
   const limpio = normalizarTexto(valor)
   if (limpio.includes('fijo') || limpio.includes('plazo')) return 'fijo'
   if (limpio.includes('obra') || limpio.includes('labor')) return 'obra'
-  return 'indefinido'
+  return 'fijo'
 }
 
 function aTipoSalario(valor: string): TipoSalario {
@@ -156,7 +178,8 @@ function aMotivo(valor: string): MotivoTerminacion {
   if (limpio.includes('mutuo')) return 'mutuo_acuerdo'
   if (limpio.includes('plazo') || limpio.includes('vencimiento')) return 'fin_plazo'
   if (limpio.includes('obra')) return 'fin_obra'
-  return 'renuncia'
+  if (limpio.includes('renuncia')) return 'renuncia'
+  return 'fin_plazo'
 }
 
 function leer(fila: Record<string, string>, campo: string): string {
@@ -174,6 +197,42 @@ function celdaATexto(celda: CeldaLote): string {
   }
   if (typeof celda === 'boolean') return celda ? 'si' : 'no'
   return String(celda)
+}
+
+/**
+ * Convierte texto pegado (celdas copiadas de Excel/Sheets o un CSV) en la misma
+ * estructura de filas que usa `parsearLote`. Detecta el delimitador comparando
+ * cuál hace que todas las líneas tengan el mismo número de columnas.
+ */
+export function textoACeldas(texto: string): CeldaLote[][] {
+  const lineas = texto
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((linea) => linea.trim())
+    .filter((linea) => linea.length > 0)
+
+  if (lineas.length === 0) return []
+
+  const delimitador = detectarDelimitador(lineas)
+  return lineas.map((linea) => linea.split(delimitador).map((celda) => celda.trim()))
+}
+
+function detectarDelimitador(lineas: string[]): string {
+  const candidatos = ['\t', ';', '|', ',']
+  let mejor = '\t'
+  let mejorColumnas = 0
+
+  for (const candidato of candidatos) {
+    const cuenta = lineas[0].split(candidato).length
+    if (cuenta <= 1) continue
+    const uniforme = lineas.every((linea) => linea.split(candidato).length === cuenta)
+    if (uniforme && cuenta > mejorColumnas) {
+      mejorColumnas = cuenta
+      mejor = candidato
+    }
+  }
+
+  return mejor
 }
 
 /**
@@ -228,7 +287,7 @@ export function parsearLote(filas: CeldaLote[][], anioParametros: number): Resul
       anioParametros,
     }
 
-    const validacion = validarEntrada(entrada)
+    const validacion = validarEntrada(entrada, 'lote')
     if (!validacion.ok) {
       errores.push({
         fila: numeroFila,
@@ -240,10 +299,14 @@ export function parsearLote(filas: CeldaLote[][], anioParametros: number): Resul
     }
 
     try {
+      const resultado = calcularLiquidacion(entrada)
       filasLote.push({
         fila: numeroFila,
         entrada,
-        resultado: calcularLiquidacion(entrada),
+        resultado: {
+          ...resultado,
+          advertencias: [...validacion.advertencias, ...resultado.advertencias],
+        },
       })
     } catch (error) {
       errores.push({
@@ -275,6 +338,34 @@ function negrita(valor: string): CeldaXlsx {
   return { value: valor, fontWeight: 'bold' }
 }
 
+// Plantilla mínima: solo las columnas que de verdad cambian el resultado.
+// El resto se llena con valores por defecto y se muestra como alerta.
+const ENCABEZADOS_PLANTILLA_MINIMA = [
+  'documento',
+  'nombre',
+  'fecha_ingreso',
+  'fecha_retiro',
+  'salario_basico',
+  'salario_minimo',
+  'auxilio_transporte',
+  'tipo_contrato',
+  'tipo_salario',
+  'motivo_terminacion',
+]
+
+const FILA_EJEMPLO_MINIMA: ValorCelda[] = [
+  '123456789',
+  'Ana Pérez',
+  '2024-01-15',
+  '2026-06-30',
+  1_750_905,
+  'no',
+  'no',
+  'fijo',
+  'fijo',
+  'fin_plazo',
+]
+
 const ENCABEZADOS_PLANTILLA = [
   'documento',
   'nombre',
@@ -289,6 +380,7 @@ const ENCABEZADOS_PLANTILLA = [
   'motivo_terminacion',
   'vacaciones_disfrutadas',
   'dias_salario_pendiente',
+  'fecha_fin_contrato',
   'cesantias_consignadas_hasta',
   'ultimo_pago_prima',
   'prima_junio_pagada',
@@ -303,15 +395,16 @@ const FILA_EJEMPLO: ValorCelda[] = [
   'Ana Pérez',
   '2024-01-15',
   '2026-06-30',
-  'indefinido',
+  'fijo',
   'fijo',
   1_750_905,
   0,
-  'si',
   'no',
-  'renuncia',
+  'no',
+  'fin_plazo',
   0,
   0,
+  '2026-12-31',
   '2025-12-31',
   '2026-06-30',
   'no',
@@ -321,8 +414,13 @@ const FILA_EJEMPLO: ValorCelda[] = [
   0,
 ]
 
-/** Filas de la hoja «Plantilla»: encabezados + una fila de ejemplo. */
+/** Filas de la plantilla mínima: encabezados + una fila de ejemplo. */
 export function plantillaDatos(): CeldaXlsx[][] {
+  return [ENCABEZADOS_PLANTILLA_MINIMA.map(negrita), FILA_EJEMPLO_MINIMA]
+}
+
+/** Filas de la plantilla completa con todas las columnas opcionales. */
+export function plantillaCompletaDatos(): CeldaXlsx[][] {
   return [ENCABEZADOS_PLANTILLA.map(negrita), FILA_EJEMPLO]
 }
 

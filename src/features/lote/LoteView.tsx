@@ -15,8 +15,10 @@ import {
 import {
   erroresDatos,
   parsearLote,
+  plantillaCompletaDatos,
   plantillaDatos,
   resultadosDatos,
+  textoACeldas,
 } from '../../engine/xlsx'
 import type { CeldaLote, ResultadoLote } from '../../engine/xlsx'
 import { formatCOP } from '../../engine/formato'
@@ -29,6 +31,7 @@ export function LoteView() {
   const [nombreArchivo, setNombreArchivo] = useState('')
   const [lote, setLote] = useState<ResultadoLote | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [textoPegado, setTextoPegado] = useState('')
 
   const totalNeto = useMemo(
     () => lote?.filas.reduce((total, fila) => total + fila.resultado.netoPagar, 0) ?? 0,
@@ -45,6 +48,17 @@ export function LoteView() {
       return
     }
     setLote(resultado)
+  }
+
+  function procesarTexto() {
+    const celdas = textoACeldas(textoPegado)
+    if (celdas.length === 0) {
+      setLote(null)
+      setError('No se encontraron datos. Pega celdas copiadas de Excel/Sheets o un CSV.')
+      return
+    }
+    setNombreArchivo('datos-pegados')
+    procesar(celdas)
   }
 
   async function alSeleccionarArchivo(event: ChangeEvent<HTMLInputElement>) {
@@ -141,11 +155,48 @@ export function LoteView() {
                 <Icon name="download" size={15} />
                 Descargar plantilla
               </Button>
+              <Button
+                variante="ghost"
+                onClick={() =>
+                  void writeXlsxFile(plantillaCompletaDatos()).toFile(
+                    'plantilla-completa-liquidacion-laboral.xlsx',
+                  )
+                }
+              >
+                <Icon name="download" size={15} />
+                Plantilla completa
+              </Button>
               {lote ? (
                 <Button variante="ghost" onClick={limpiar}>
                   Limpiar
                 </Button>
               ) : null}
+            </div>
+
+            <div className="space-y-2">
+              <div className="text-[13px] font-medium text-slate-700">
+                O pega los datos directamente
+              </div>
+              <textarea
+                id="textoPegado"
+                value={textoPegado}
+                onChange={(event) => setTextoPegado(event.target.value)}
+                rows={6}
+                placeholder={
+                  'Copia celdas desde Excel, Google Sheets o un CSV y pégalas aquí. ' +
+                  'La primera fila es el encabezado. Solo necesitas: documento, nombre, ' +
+                  'fecha de ingreso, fecha de retiro y salario.'
+                }
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-[13px] text-slate-900 placeholder:text-slate-400 transition focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+              />
+              <Button
+                variante="secondary"
+                onClick={procesarTexto}
+                disabled={!textoPegado.trim()}
+              >
+                <Icon name="table" size={15} />
+                Procesar datos pegados
+              </Button>
             </div>
 
             {error ? (
@@ -160,22 +211,20 @@ export function LoteView() {
           <SectionTitle
             icono="info"
             titulo="Columnas de la plantilla"
-            descripcion="Las columnas obligatorias son documento, nombre, fechas y salario."
+            descripcion="Solo 5 columnas son obligatorias; el resto se completa con valores por defecto."
           />
           <div className="space-y-2 p-5 text-[11.5px] leading-relaxed text-slate-600">
             {[
-              ['documento', 'Identificación del trabajador'],
-              ['nombre', 'Nombre completo'],
-              ['fecha_ingreso', 'YYYY-MM-DD o DD/MM/YYYY'],
-              ['fecha_retiro', 'YYYY-MM-DD o DD/MM/YYYY'],
-              ['tipo_contrato', 'indefinido, fijo u obra'],
-              ['tipo_salario', 'fijo, variable o integral'],
-              ['salario_basico', 'Solo números'],
-              ['auxilio_transporte', 'si / no'],
+              ['documento', 'Identificación del trabajador · obligatorio'],
+              ['nombre', 'Nombre completo · obligatorio'],
+              ['fecha_ingreso', 'YYYY-MM-DD o DD/MM/YYYY · obligatorio'],
+              ['fecha_retiro', 'YYYY-MM-DD o DD/MM/YYYY · obligatorio'],
+              ['salario_basico', 'Solo números · obligatorio (o salario_minimo = si)'],
               ['salario_minimo', 'si / no · usa el SMMLV de cada año'],
-              ['motivo_terminacion', 'renuncia, despido_sin_justa, etc.'],
-              ['cesantias_consignadas_hasta', 'Opcional'],
-              ['ultimo_pago_prima', 'Opcional'],
+              ['auxilio_transporte', 'si / no · por defecto: no'],
+              ['tipo_contrato', 'indefinido, fijo u obra · por defecto: fijo'],
+              ['tipo_salario', 'fijo, variable o integral · por defecto: fijo'],
+              ['motivo_terminacion', 'renuncia, despido_sin_justa, etc. · por defecto: fin_plazo'],
             ].map(([campo, descripcion]) => (
               <div key={campo} className="flex items-start justify-between gap-3">
                 <code className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10.5px] text-slate-700">
@@ -185,8 +234,8 @@ export function LoteView() {
               </div>
             ))}
             <p className="pt-2 text-[11px] text-slate-400">
-              Las columnas adicionales se ignoran. Las filas con errores se listan
-              aparte para corregirlas y volver a cargarlas.
+              Los datos faltantes se llenan con valores por defecto y se marcan
+              como alerta. Las filas con errores se listan aparte para corregirlas.
             </p>
           </div>
         </Card>
