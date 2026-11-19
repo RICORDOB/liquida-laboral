@@ -152,7 +152,7 @@ export function LiquidacionView({
           </Badge>
         </div>
         <h1 className="mt-3 text-2xl font-semibold tracking-tight text-slate-900 sm:text-[32px]">
-          Liquidación laboral definitiva
+          Liquidación laboral
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
           Cesantías, intereses, prima, vacaciones, indemnización y salarios pendientes,

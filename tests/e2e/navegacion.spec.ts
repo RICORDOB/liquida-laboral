@@ -10,7 +10,7 @@ test.describe('Navegación', () => {
     const header = page.locator('header')
 
     await expect(
-      page.getByRole('heading', { name: 'Liquidación laboral definitiva' }),
+      page.getByRole('heading', { name: 'Liquidación laboral' }),
     ).toBeVisible()
 
     await header.getByRole('button', { name: 'Lote Excel' }).click()

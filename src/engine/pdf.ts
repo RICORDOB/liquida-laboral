@@ -69,7 +69,7 @@ export function generarPDF(
 
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(18)
-  doc.text('Liquidación laboral definitiva', tituloX, 14)
+  doc.text('Liquidación laboral', tituloX, 14)
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
   doc.text(lineaEmpresa || 'Liquida Laboral · Colombia', tituloX, 21)

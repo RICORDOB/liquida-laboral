@@ -28,7 +28,7 @@ test.describe('Liquidación individual', () => {
 
     await page.getByRole('button', { name: 'Editar' }).click()
     await expect(
-      page.getByRole('heading', { name: 'Liquidación laboral definitiva' }),
+      page.getByRole('heading', { name: 'Liquidación laboral' }),
     ).toBeVisible()
   })
 })
